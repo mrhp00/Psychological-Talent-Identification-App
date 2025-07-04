@@ -1,2 +1,25 @@
-# Psychological-Talent-Identification-App
-This application is a desktop GUI tool for recording, scoring, and searching psychological test results. It is built with Python and PyQt5.
+# Psychological Talent Identification App
+
+A simple, user-friendly desktop application for recording, scoring, and searching psychological test results. Built with Python and PyQt5, this app allows you to define your own test questions and scoring system via a JSON file, making it flexible for different psychological or talent assessment scenarios.
+
+## Features
+- Add new test entries with name, phone, and answers
+- Automatic scoring and answer description lookup
+- Search and view entries by name or phone
+- Sort entries by name or score
+- All data is stored in editable JSON files
+- Easily customize the test by editing `keys.json`
+
+## Getting Started
+1. Install Python 3 and PyQt5 (`pip install pyqt5`)
+2. Clone this repository
+3. Run `psycho_app.py`
+4. Edit `keys.json` to define your own questions, scoring, and descriptions
+
+## Customization
+- The number and content of questions is fully customizable via `keys.json`.
+- See `HELP.md` for detailed instructions on usage and customization.
+
+## Author
+Made by: Mohammadreza Hassanpour Koumeleh  
+Email: engineer.mrhp@gmail.com
