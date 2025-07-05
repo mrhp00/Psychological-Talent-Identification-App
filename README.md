@@ -6,7 +6,8 @@ A simple, user-friendly desktop application for recording, scoring, and searchin
 - Add new test entries with name, phone, and answers
 - Automatic scoring and answer description lookup
 - Search and view entries by name or phone
-- Sort entries by name or score
+- Sort entries by name or score (click table headers)
+- Edit and delete entries (right-click or select entry)
 - All data is stored in editable JSON files
 - Easily customize the test by editing `keys.json`
 
@@ -19,6 +20,12 @@ A simple, user-friendly desktop application for recording, scoring, and searchin
 ## Customization
 - The number and content of questions is fully customizable via `keys.json`.
 - See `HELP.md` for detailed instructions on usage and customization.
+
+## Version History
+
+### v2.0.0
+- Bug fixes: PyInstaller/PyQt5 packaging, icon support, and data handling
+- New features: Edit and delete entries from the main table
 
 ## Author
 Made by: Mohammadreza Hassanpour Koumeleh  

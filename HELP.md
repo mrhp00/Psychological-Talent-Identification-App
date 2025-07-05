@@ -7,7 +7,8 @@ This application is a desktop GUI tool for recording, scoring, and searching psy
 - Automatic scoring and description lookup based on answers
 - Search entries by name or phone
 - View details and descriptions for each entry
-- Sort entries by name or score
+- Sort entries by name or score (click table headers)
+- Edit and delete entries (right-click or select entry)
 - Data is saved in JSON files for persistence
 
 ## How It Works
@@ -26,12 +27,22 @@ This application is a desktop GUI tool for recording, scoring, and searching psy
 3. The app calculates the total score and shows descriptions for each answer.
 4. The entry is saved to `entries.json`.
 
-### Searching Entries
+- Click **Search** and enter a name or phone number.
+- Double-click a result to see full details and answer descriptions.
+Click **Search** and enter a name or phone number.
+Double-click a result to see full details and answer descriptions.
 - Click **Search** and enter a name or phone number.
 - Double-click a result to see full details and answer descriptions.
 
 ### Sorting
-- Click the table headers to sort by name or score.
+Click the table headers to sort by name or score.
+### Editing and Deleting Entries
+To edit or delete an entry:
+- Right-click an entry in the main table (or select and use the context menu)
+- Choose **Edit** to modify the entry's details and answers
+- Choose **Delete** to remove the entry from the list
+
+All changes are saved automatically.
 
 ## How to Change `keys.json` for Different Questions
 
@@ -81,6 +92,12 @@ The `keys.json` file defines the scoring and descriptions for each question. Its
   2. Make sure both lists are the same length and each answer (`a`-`d`) is present for every question.
 
 **Note:** Existing entries in `entries.json` may not match the new question count if you change it after data has been entered.
+
+## Version History
+
+### v2.0.0
+- Bug fixes: PyInstaller/PyQt5 packaging, icon support, and data handling
+- New features: Edit and delete entries from the main table
 
 ## Author
 Made by: Mohammadreza Hassanpour Koumeleh 
