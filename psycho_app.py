@@ -182,12 +182,18 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central)
         layout = QVBoxLayout()
         btn_layout = QHBoxLayout()
-        # Add Entry and Search buttons
+        # Add Entry, Edit, Delete, and Search buttons
         add_btn = QPushButton('Add Entry')
         add_btn.clicked.connect(self.open_add_entry)
+        edit_btn = QPushButton('Edit Entry')
+        edit_btn.clicked.connect(self.open_edit_entry)
+        delete_btn = QPushButton('Delete Entry')
+        delete_btn.clicked.connect(self.open_delete_entry)
         search_btn = QPushButton('Search')
         search_btn.clicked.connect(self.open_search)
         btn_layout.addWidget(add_btn)
+        btn_layout.addWidget(edit_btn)
+        btn_layout.addWidget(delete_btn)
         btn_layout.addWidget(search_btn)
         # Table to show all entries
         self.table = QTableWidget(0, 3)
@@ -268,6 +274,7 @@ class MainWindow(QMainWindow):
     def open_add_entry(self):
         """
         Open the Add Entry dialog and add the new entry if accepted.
+        Refresh entries from file after adding.
         """
         dlg = AddEntryDialog(self.keys, self.descriptions, self)
         dlg.setWindowIcon(QIcon('YASA.ico'))
@@ -275,6 +282,50 @@ class MainWindow(QMainWindow):
             entries = load_entries()
             entries.append(dlg.result_entry)
             save_entries(entries)
+            self.entries = load_entries()  # Ensure entries are reloaded from file
+            self.refresh_table()
+
+    def open_edit_entry(self):
+        """
+        Edit the selected entry in the table.
+        """
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self.entries):
+            QMessageBox.warning(self, 'Edit Entry', 'Please select an entry to edit.')
+            return
+        entry = self.entries[row]
+        dlg = AddEntryDialog(self.keys, self.descriptions, self)
+        dlg.setWindowIcon(QIcon('YASA.ico'))
+        dlg.name_input.setText(entry['name'])
+        dlg.phone_input.setText(entry['phone'])
+        dlg.answers_input.setText(entry['answers'])
+        if dlg.exec_() == QDialog.Accepted and dlg.result_entry:
+            entries = load_entries()
+            # Find and update the entry by unique fields (name+phone+answers)
+            for i, e in enumerate(entries):
+                if e['name'] == entry['name'] and e['phone'] == entry['phone'] and e['answers'] == entry['answers']:
+                    entries[i] = dlg.result_entry
+                    break
+            save_entries(entries)
+            self.entries = load_entries()
+            self.refresh_table()
+
+    def open_delete_entry(self):
+        """
+        Delete the selected entry in the table.
+        """
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self.entries):
+            QMessageBox.warning(self, 'Delete Entry', 'Please select an entry to delete.')
+            return
+        entry = self.entries[row]
+        reply = QMessageBox.question(self, 'Delete Entry', f"Are you sure you want to delete entry for {entry['name']}?", QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            entries = load_entries()
+            # Remove by unique fields (name+phone+answers)
+            entries = [e for e in entries if not (e['name'] == entry['name'] and e['phone'] == entry['phone'] and e['answers'] == entry['answers'])]
+            save_entries(entries)
+            self.entries = load_entries()
             self.refresh_table()
 
 
