@@ -3,6 +3,8 @@
 This application is a desktop GUI tool for recording, scoring, and searching psychological test results. It is built with Python and PyQt5.
 
 ## Features
+- Merge multiple entity JSON files, removing duplicates
+- Visual editor for creating/editing keys/questions (auto-opens if keys.json missing)
 - Add new test entries (name, phone, answers)
 - Automatic scoring and description lookup based on answers
 - Search entries by name or phone
@@ -16,12 +18,14 @@ This application is a desktop GUI tool for recording, scoring, and searching psy
 ## How It Works
 
 ### Main Files
+- `merged_entities.json`: Example output from the Merge Entities tool
 - `psycho_app.py`: Main application code (PyQt5 GUI)
 - `keys.json`: Defines the scoring and descriptions for each question and answer
 - `entries.json`: Stores all user entries (created automatically)
 - `YASA.ico`: Application icon (optional)
 
 ### Adding an Entry
+If `keys.json` is missing, the app will prompt you to create it with a visual editor before you can add entries.
 1. Click **Add Entry**.
 2. Enter the person's name, phone, and answers (one letter per question, e.g. `abccbadcda`).
    - The number of answers must match the number of questions in `keys.json`.
@@ -39,6 +43,15 @@ Double-click a result to see full details and answer descriptions.
 ### Sorting
 Click the table headers to sort by name or score.
 ### Editing, Deleting, and Removing Duplicates
+To merge entity files:
+- Go to Tools > Merge Entity Files, select two or more JSON files, and merge them into one file (duplicates are removed automatically).
+## Keys Editor Window
+
+The Keys Editor allows you to create or edit the questions, answer keys, and descriptions used for scoring. It opens automatically if `keys.json` is missing, or can be accessed from Tools > Edit Keys.
+
+- Each row is a question. For each answer (a, b, c, d), enter the score and a description.
+- Use Add Question to add more questions, or Delete Selected to remove a question.
+- Click Save to write changes to `keys.json`.
 To edit or delete an entry:
 - Right-click an entry in the main table (or select and use the context menu)
 - Choose **Edit** to modify the entry's details and answers

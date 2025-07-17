@@ -6,9 +6,9 @@ from datetime import datetime
 import jdatetime
 # PyQt5 imports for GUI components
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QMessageBox, QDialog, QHeaderView, QMenuBar, QAction
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QMessageBox, QDialog, QHeaderView, QMenuBar, QAction, QFileDialog, QSpinBox, QTextEdit, QAbstractItemView, QProgressDialog
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QIcon
 
 
@@ -233,6 +233,183 @@ class SearchDialog(QDialog):
             QMessageBox.information(self, 'Delete Entry', 'Entry deleted successfully.')
 
 
+class MergeEntitiesDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Merge Entity Files')
+        self.setWindowIcon(QIcon('YASA.ico'))
+        layout = QVBoxLayout()
+        self.file_list = []
+        self.select_btn = QPushButton('Select JSON Files')
+        self.select_btn.clicked.connect(self.select_files)
+        self.merge_btn = QPushButton('Merge and Save')
+        self.merge_btn.clicked.connect(self.merge_and_save)
+        self.merge_btn.setEnabled(False)
+        layout.addWidget(self.select_btn)
+        layout.addWidget(self.merge_btn)
+        self.setLayout(layout)
+        self.setMinimumWidth(400)
+
+    def select_files(self):
+        files, _ = QFileDialog.getOpenFileNames(self, 'Select entity JSON files', '', 'JSON Files (*.json)')
+        if files:
+            self.file_list = files
+            self.merge_btn.setEnabled(len(self.file_list) >= 2)
+
+    def merge_and_save(self):
+        all_entries = []
+        seen = set()
+        for file in self.file_list:
+            try:
+                with open(file, encoding='utf-8') as f:
+                    entries = json.load(f)
+                    for e in entries:
+                        key = (e['name'], e['phone'], e['answers'])
+                        if key not in seen:
+                            seen.add(key)
+                            all_entries.append(e)
+            except Exception as ex:
+                QMessageBox.warning(self, 'Error', f'Failed to read {file}: {ex}')
+                return
+        save_path, _ = QFileDialog.getSaveFileName(self, 'Save merged entities', 'merged_entities.json', 'JSON Files (*.json)')
+        if save_path:
+            try:
+                with open(save_path, 'w', encoding='utf-8') as f:
+                    json.dump(all_entries, f, ensure_ascii=False, indent=2)
+                QMessageBox.information(self, 'Success', f'Merged {len(self.file_list)} files, total {len(all_entries)} unique entries saved.')
+                self.accept()
+                # --- FINAL FIX: always update ENTRIES_FILE and reload entries in main window ---
+                if self.parent() and hasattr(self.parent(), 'set_and_reload_entries_file'):
+                    self.parent().set_and_reload_entries_file(save_path)
+            except Exception as ex:
+                QMessageBox.warning(self, 'Error', f'Failed to save: {ex}')
+
+
+class KeysEditorDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Keys Editor')
+        self.setWindowIcon(QIcon('YASA.ico'))
+        self.keys = []
+        self.descriptions = []
+        self.load_keys()
+        layout = QVBoxLayout()
+        self.table = QTableWidget(0, 9)
+        self.table.setHorizontalHeaderLabels([
+            'Q#', 'a (score)', 'a (desc)', 'b (score)', 'b (desc)', 'c (score)', 'c (desc)', 'd (score)', 'd (desc)'])
+        self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QAbstractItemView.AllEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SingleSelection)
+        layout.addWidget(self.table)
+        btns = QHBoxLayout()
+        self.add_btn = QPushButton('Add Question')
+        self.add_btn.clicked.connect(self.add_question)
+        self.del_btn = QPushButton('Delete Selected')
+        self.del_btn.clicked.connect(self.delete_selected)
+        self.save_btn = QPushButton('Save')
+        self.save_btn.clicked.connect(self.save_keys)
+        btns.addWidget(self.add_btn)
+        btns.addWidget(self.del_btn)
+        btns.addWidget(self.save_btn)
+        layout.addLayout(btns)
+        self.setLayout(layout)
+        self.setMinimumWidth(800)
+        self.refresh_table()
+
+    def load_keys(self):
+        if os.path.exists(KEYS_FILE):
+            try:
+                with open(KEYS_FILE, encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.keys = data.get('keys', [])
+                    self.descriptions = data.get('descriptions', [])
+            except Exception:
+                self.keys = []
+                self.descriptions = []
+        else:
+            self.keys = []
+            self.descriptions = []
+
+    def refresh_table(self):
+        self.table.setRowCount(0)
+        for i, (k, d) in enumerate(zip(self.keys, self.descriptions)):
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QTableWidgetItem(str(row+1)))
+            for idx, key in enumerate(['a','b','c','d']):
+                score_item = QTableWidgetItem(str(k.get(key, 0)))
+                desc_item = QTableWidgetItem(d.get(key, ''))
+                self.table.setItem(row, 1+idx*2, score_item)
+                self.table.setItem(row, 2+idx*2, desc_item)
+
+    def add_question(self):
+        self.keys.append({'a':0,'b':0,'c':0,'d':0})
+        self.descriptions.append({'a':'','b':'','c':'','d':''})
+        self.refresh_table()
+
+    def delete_selected(self):
+        row = self.table.currentRow()
+        if row >= 0 and row < len(self.keys):
+            del self.keys[row]
+            del self.descriptions[row]
+            self.refresh_table()
+
+    def save_keys(self):
+        # Read from table to self.keys/self.descriptions
+        for row in range(self.table.rowCount()):
+            k = {}
+            d = {}
+            for idx, key in enumerate(['a','b','c','d']):
+                try:
+                    k[key] = int(self.table.item(row, 1+idx*2).text())
+                except:
+                    k[key] = 0
+                d[key] = self.table.item(row, 2+idx*2).text()
+            self.keys[row] = k
+            self.descriptions[row] = d
+        try:
+            with open(KEYS_FILE, 'w', encoding='utf-8') as f:
+                json.dump({'keys': self.keys, 'descriptions': self.descriptions}, f, ensure_ascii=False, indent=2)
+            QMessageBox.information(self, 'Saved', 'Keys saved successfully.')
+            # --- ABSOLUTE FIX: Always recalculate and update all scores in entries.json after saving keys ---
+            def recalc_scores():
+                if os.path.exists(ENTRIES_FILE):
+                    try:
+                        with open(ENTRIES_FILE, encoding='utf-8') as f:
+                            entries = json.load(f)
+                        n = len(entries)
+                        for i, e in enumerate(entries):
+                            answers = e.get('answers', '')
+                            total = 0
+                            for idx, ans in enumerate(answers):
+                                if idx < len(self.keys) and ans in self.keys[idx]:
+                                    total += self.keys[idx][ans]
+                            e['score'] = total
+                        with open(ENTRIES_FILE, 'w', encoding='utf-8') as f2:
+                            json.dump(entries, f2, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+            # Always update scores in file, then update main window UI if present
+            def do_refresh():
+                mainwin = self.parent()
+                while mainwin and not isinstance(mainwin, QMainWindow):
+                    mainwin = mainwin.parent()
+                if not mainwin:
+                    for widget in QApplication.topLevelWidgets():
+                        if isinstance(widget, QMainWindow):
+                            mainwin = widget
+                            break
+                if mainwin and hasattr(mainwin, 'recalculate_all_scores_and_reload_keys'):
+                    mainwin.recalculate_all_scores_and_reload_keys()
+            # First recalc scores, then refresh main window after a short delay
+            recalc_scores()  # Update file immediately
+            QTimer.singleShot(200, do_refresh)  # Then refresh main window after file update
+            self.accept()
+        except Exception as ex:
+            QMessageBox.warning(self, 'Error', f'Failed to save: {ex}')
+
+
 class MainWindow(QMainWindow):
     """
     Main application window. Shows the table of entries and provides access to add/search dialogs.
@@ -242,6 +419,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Psychological Talent Identification')
         self.setWindowIcon(QIcon('YASA.ico'))
         # Load keys and descriptions from keys.json
+        if not os.path.exists(KEYS_FILE):
+            dlg = KeysEditorDialog(self)
+            dlg.exec_()
         self.keys, self.descriptions = load_keys()
         # Load all entries from entries.json
         self.entries = load_entries()
@@ -291,6 +471,14 @@ class MainWindow(QMainWindow):
         about_action = QAction('About', self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+        # Add Tools menu for merge and keys editor
+        tools_menu = menubar.addMenu('Tools')
+        merge_action = QAction('Merge Entity Files', self)
+        merge_action.triggered.connect(self.open_merge_entities)
+        tools_menu.addAction(merge_action)
+        edit_keys_action = QAction('Edit Keys', self)
+        edit_keys_action.triggered.connect(self.open_keys_editor)
+        tools_menu.addAction(edit_keys_action)
         self.sort_column = 0
         self.sort_order = Qt.AscendingOrder
 
@@ -446,7 +634,19 @@ class MainWindow(QMainWindow):
         self.entries = load_entries()  # Reload in case of changes
         self.refresh_table()
 
+    def open_merge_entities(self):
+        dlg = MergeEntitiesDialog(self)
+        dlg.exec_()
+        # Always reload entries after dialog closes (in case user merged)
+        self.entries = load_entries()
+        self.refresh_table()
 
+    def open_keys_editor(self):
+        dlg = KeysEditorDialog(self)
+        if dlg.exec_() == QDialog.Accepted:
+            self.keys, self.descriptions = load_keys()
+            self.entries = load_entries()
+            self.refresh_table()
 # Entry point for the application
 if __name__ == '__main__':
     app = QApplication(sys.argv)

@@ -3,6 +3,8 @@
 A simple, user-friendly desktop application for recording, scoring, and searching psychological test results. Built with Python and PyQt5, this app allows you to define your own test questions and scoring system via a JSON file, making it flexible for different psychological or talent assessment scenarios.
 
 ## Features
+- Merge multiple entity JSON files, removing duplicates
+- Create or edit keys/questions with a visual editor (auto-opens if keys.json missing)
 - Add new test entries with name, phone, and answers
 - Automatic scoring and answer description lookup
 - Search and view entries by name or phone
@@ -18,7 +20,7 @@ A simple, user-friendly desktop application for recording, scoring, and searchin
 1. Install Python 3 and PyQt5 (`pip install pyqt5`)
 2. Clone this repository
 3. Run `psycho_app.py`
-4. Edit `keys.json` to define your own questions, scoring, and descriptions
+4. If `keys.json` is missing, the app will prompt you to create it with a visual editor. You can also edit questions/keys later from the Tools menu.
 
 ## Customization
 - The number and content of questions is fully customizable via `keys.json`.
@@ -26,6 +28,9 @@ A simple, user-friendly desktop application for recording, scoring, and searchin
 
 
 ## Version History
+### v3.0.0
+- New: Merge Entities tool to combine multiple entity files and remove duplicates
+- New: Visual Keys Editor for creating/editing questions and answer keys (auto-opens if keys.json missing)
 
 ### v2.2.0
 - Footer now shows total number of entries
