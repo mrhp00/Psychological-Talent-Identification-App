@@ -1,4 +1,3 @@
-
 # Standard library imports
 import sys
 import json
@@ -279,10 +278,10 @@ class MainWindow(QMainWindow):
         dlg = AddEntryDialog(self.keys, self.descriptions, self)
         dlg.setWindowIcon(QIcon('YASA.ico'))
         if dlg.exec_() == QDialog.Accepted and dlg.result_entry:
-            entries = load_entries()
+            entries = load_entries()  # Reload from file to get latest
             entries.append(dlg.result_entry)
             save_entries(entries)
-            self.entries = load_entries()  # Ensure entries are reloaded from file
+            self.entries = load_entries()  # Ensure self.entries is up to date
             self.refresh_table()
 
     def open_edit_entry(self):
@@ -333,9 +332,12 @@ class MainWindow(QMainWindow):
         """
         Open the Search dialog for searching entries.
         """
+        self.entries = load_entries()  # Always reload before search
         dlg = SearchDialog(self.entries, self.keys, self.descriptions, self)
         dlg.setWindowIcon(QIcon('YASA.ico'))
         dlg.exec_()
+        self.entries = load_entries()  # Reload in case of changes
+        self.refresh_table()
 
 
 # Entry point for the application
