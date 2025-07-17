@@ -130,9 +130,18 @@ class SearchDialog(QDialog):
         search_btn = QPushButton('Search')
         search_btn.clicked.connect(self.do_search)
         self.result_table.cellDoubleClicked.connect(self.show_details)
+        # Add Edit and Delete buttons for search results
+        btn_layout = QHBoxLayout()
+        self.edit_btn = QPushButton('Edit Selected')
+        self.edit_btn.clicked.connect(self.edit_selected)
+        self.delete_btn = QPushButton('Delete Selected')
+        self.delete_btn.clicked.connect(self.delete_selected)
+        btn_layout.addWidget(self.edit_btn)
+        btn_layout.addWidget(self.delete_btn)
         layout.addWidget(self.query_input)
         layout.addWidget(search_btn)
         layout.addWidget(self.result_table)
+        layout.addLayout(btn_layout)
         self.setLayout(layout)
         self.setMinimumWidth(500)
 
@@ -165,6 +174,63 @@ class SearchDialog(QDialog):
         descs = [self.descriptions[i][a] for i, a in enumerate(answers)]
         desc_text = '\n'.join(f'- {d}' for d in descs)
         QMessageBox.information(self, 'Entry Details', f"Name: {entry['name']}\nPhone: {entry['phone']}\nTotal Score: {entry['score']}\nDescriptions:\n{desc_text}")
+
+    def edit_selected(self):
+        """
+        Edit the selected entry in the search results.
+        """
+        row = self.result_table.currentRow()
+        if not hasattr(self, 'results') or row < 0 or row >= len(self.results):
+            QMessageBox.warning(self, 'Edit Entry', 'Please select an entry to edit.')
+            return
+        entry = self.results[row]
+        dlg = AddEntryDialog(self.keys, self.descriptions, self)
+        dlg.setWindowIcon(QIcon('YASA.ico'))
+        dlg.name_input.setText(entry['name'])
+        dlg.phone_input.setText(entry['phone'])
+        dlg.answers_input.setText(entry['answers'])
+        if dlg.exec_() == QDialog.Accepted and dlg.result_entry:
+            # Load entries from file, update the entry, save, and refresh
+            if os.path.exists(ENTRIES_FILE):
+                with open(ENTRIES_FILE, encoding='utf-8') as f:
+                    all_entries = json.load(f)
+            else:
+                all_entries = []
+            for i, e in enumerate(all_entries):
+                if e['name'] == entry['name'] and e['phone'] == entry['phone'] and e['answers'] == entry['answers']:
+                    all_entries[i] = dlg.result_entry
+                    break
+            with open(ENTRIES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(all_entries, f, ensure_ascii=False, indent=2)
+            # Update self.entries and results
+            self.entries = all_entries
+            self.do_search()
+            QMessageBox.information(self, 'Edit Entry', 'Entry updated successfully.')
+
+    def delete_selected(self):
+        """
+        Delete the selected entry in the search results.
+        """
+        row = self.result_table.currentRow()
+        if not hasattr(self, 'results') or row < 0 or row >= len(self.results):
+            QMessageBox.warning(self, 'Delete Entry', 'Please select an entry to delete.')
+            return
+        entry = self.results[row]
+        reply = QMessageBox.question(self, 'Delete Entry', f"Are you sure you want to delete entry for {entry['name']}?", QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            # Load entries from file, remove the entry, save, and refresh
+            if os.path.exists(ENTRIES_FILE):
+                with open(ENTRIES_FILE, encoding='utf-8') as f:
+                    all_entries = json.load(f)
+            else:
+                all_entries = []
+            all_entries = [e for e in all_entries if not (e['name'] == entry['name'] and e['phone'] == entry['phone'] and e['answers'] == entry['answers'])]
+            with open(ENTRIES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(all_entries, f, ensure_ascii=False, indent=2)
+            # Update self.entries and results
+            self.entries = all_entries
+            self.do_search()
+            QMessageBox.information(self, 'Delete Entry', 'Entry deleted successfully.')
 
 
 class MainWindow(QMainWindow):
@@ -272,8 +338,9 @@ class MainWindow(QMainWindow):
             mtime = os.path.getmtime(ENTRIES_FILE)
             dt = datetime.fromtimestamp(mtime)
             shamsi = jdatetime.datetime.fromgregorian(datetime=dt)
+            total = len(self.entries)
             self.footer_label.setText(
-                f"Last modified: {dt.strftime('%Y-%m-%d %H:%M:%S')} (Gregorian) / {shamsi.strftime('%Y-%m-%d %H:%M:%S')} (Shamsi)"
+                f"Last modified: {dt.strftime('%Y-%m-%d %H:%M:%S')} (Gregorian) / {shamsi.strftime('%Y-%m-%d %H:%M:%S')} (Shamsi) | Total entries: {total}"
             )
         except Exception:
             self.footer_label.setText('No entries file found.')

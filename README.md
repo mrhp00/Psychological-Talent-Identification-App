@@ -11,6 +11,8 @@ A simple, user-friendly desktop application for recording, scoring, and searchin
 - Remove duplicate entries (auto-removal tool)
 - All data is stored in editable JSON files
 - Easily customize the test by editing `keys.json`
+- Footer shows last modified date (Gregorian/Shamsi) and total number of entries
+- Search window allows editing and deleting entries directly
 
 ## Getting Started
 1. Install Python 3 and PyQt5 (`pip install pyqt5`)
@@ -25,6 +27,9 @@ A simple, user-friendly desktop application for recording, scoring, and searchin
 
 ## Version History
 
+### v2.2.0
+- Footer now shows total number of entries
+- Search window allows editing and deleting entries directly
 ### v2.1.0
 - New: Remove Duplicates tool to auto-remove duplicate entries
 - Footer shows last modified date in both Gregorian and Shamsi (Persian) calendars

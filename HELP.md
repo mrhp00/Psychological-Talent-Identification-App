@@ -11,6 +11,7 @@ This application is a desktop GUI tool for recording, scoring, and searching psy
 - Edit and delete entries (right-click or select entry)
 - Remove duplicate entries (auto-removal tool)
 - Data is saved in JSON files for persistence
+- Footer shows last modified date (Gregorian/Shamsi) and total number of entries
 
 ## How It Works
 
@@ -42,6 +43,7 @@ To edit or delete an entry:
 - Right-click an entry in the main table (or select and use the context menu)
 - Choose **Edit** to modify the entry's details and answers
 - Choose **Delete** to remove the entry from the list
+- In the Search window, select a result and use the Edit or Delete buttons to modify or remove entries directly from the search results.
 
 To remove duplicate entries:
 - Click the **Remove Duplicates** button on the main page
