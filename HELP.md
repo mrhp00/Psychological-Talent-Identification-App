@@ -9,6 +9,7 @@ This application is a desktop GUI tool for recording, scoring, and searching psy
 - View details and descriptions for each entry
 - Sort entries by name or score (click table headers)
 - Edit and delete entries (right-click or select entry)
+- Remove duplicate entries (auto-removal tool)
 - Data is saved in JSON files for persistence
 
 ## How It Works
@@ -36,11 +37,16 @@ Double-click a result to see full details and answer descriptions.
 
 ### Sorting
 Click the table headers to sort by name or score.
-### Editing and Deleting Entries
+### Editing, Deleting, and Removing Duplicates
 To edit or delete an entry:
 - Right-click an entry in the main table (or select and use the context menu)
 - Choose **Edit** to modify the entry's details and answers
 - Choose **Delete** to remove the entry from the list
+
+To remove duplicate entries:
+- Click the **Remove Duplicates** button on the main page
+- The tool will automatically find and remove duplicate entries (same name, phone, and answers)
+- A message will show how many duplicates were removed
 
 All changes are saved automatically.
 

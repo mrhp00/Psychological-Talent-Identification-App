@@ -2,6 +2,8 @@
 import sys
 import json
 import os
+from datetime import datetime
+import jdatetime
 # PyQt5 imports for GUI components
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QMessageBox, QDialog, QHeaderView, QMenuBar, QAction
@@ -181,7 +183,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central)
         layout = QVBoxLayout()
         btn_layout = QHBoxLayout()
-        # Add Entry, Edit, Delete, and Search buttons
+        # Add Entry, Edit, Delete, Search, and Remove Duplicates buttons
         add_btn = QPushButton('Add Entry')
         add_btn.clicked.connect(self.open_add_entry)
         edit_btn = QPushButton('Edit Entry')
@@ -190,10 +192,13 @@ class MainWindow(QMainWindow):
         delete_btn.clicked.connect(self.open_delete_entry)
         search_btn = QPushButton('Search')
         search_btn.clicked.connect(self.open_search)
+        dedup_btn = QPushButton('Remove Duplicates')
+        dedup_btn.clicked.connect(self.remove_duplicates)
         btn_layout.addWidget(add_btn)
         btn_layout.addWidget(edit_btn)
         btn_layout.addWidget(delete_btn)
         btn_layout.addWidget(search_btn)
+        btn_layout.addWidget(dedup_btn)
         # Table to show all entries
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(['Name', 'Phone', 'Score'])
@@ -206,8 +211,13 @@ class MainWindow(QMainWindow):
         self.table.cellDoubleClicked.connect(self.show_details)
         layout.addLayout(btn_layout)
         layout.addWidget(self.table)
+        # Footer for last modified date
+        self.footer_label = QLabel()
+        self.footer_label.setAlignment(Qt.AlignRight)
+        layout.addWidget(self.footer_label)
         self.central.setLayout(layout)
         self.refresh_table()
+        self.update_footer()
         self.setMinimumWidth(600)
         # Add menu bar and About action
         menubar = self.menuBar()
@@ -257,6 +267,18 @@ class MainWindow(QMainWindow):
         self.refresh_table()
 
 
+    def update_footer(self):
+        try:
+            mtime = os.path.getmtime(ENTRIES_FILE)
+            dt = datetime.fromtimestamp(mtime)
+            shamsi = jdatetime.datetime.fromgregorian(datetime=dt)
+            self.footer_label.setText(
+                f"Last modified: {dt.strftime('%Y-%m-%d %H:%M:%S')} (Gregorian) / {shamsi.strftime('%Y-%m-%d %H:%M:%S')} (Shamsi)"
+            )
+        except Exception:
+            self.footer_label.setText('No entries file found.')
+
+
     def refresh_table(self):
         """
         Refresh the main table with all entries.
@@ -268,7 +290,25 @@ class MainWindow(QMainWindow):
             self.table.setItem(row, 0, QTableWidgetItem(e['name']))
             self.table.setItem(row, 1, QTableWidgetItem(e['phone']))
             self.table.setItem(row, 2, QTableWidgetItem(str(e['score'])))
+        self.update_footer()
 
+
+    def remove_duplicates(self):
+        entries = load_entries()
+        seen = set()
+        unique = []
+        for e in entries:
+            key = (e['name'], e['phone'], e['answers'])
+            if key not in seen:
+                seen.add(key)
+                unique.append(e)
+        if len(unique) < len(entries):
+            save_entries(unique)
+            self.entries = load_entries()
+            self.refresh_table()
+            QMessageBox.information(self, 'Remove Duplicates', f"Removed {len(entries) - len(unique)} duplicate entries.")
+        else:
+            QMessageBox.information(self, 'Remove Duplicates', "No duplicates found.")
 
     def open_add_entry(self):
         """
