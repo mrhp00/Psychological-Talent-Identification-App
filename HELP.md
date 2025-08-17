@@ -116,10 +116,6 @@ The `keys.json` file defines the scoring and descriptions for each question. Its
 
 ## Version History
 
-### v2.0.0
-- Bug fixes: PyInstaller/PyQt5 packaging, icon support, and data handling
-- New features: Edit and delete entries from the main table
-
 ### v4.0.0 (Class Management)
 - New: Class Management menu available under the menu bar. Use Tools -> Class Management -> Classes to open the Classes manager.
 - Data persistence: Classes, class students, class dates and attendance are stored in a separate SQLite database named `class.sqlite3`. The database is created automatically when you first open Class Management. If you prefer not to include this DB in your Git repository, add `class.sqlite3` to your `.gitignore` file.
@@ -130,6 +126,23 @@ The `keys.json` file defines the scoring and descriptions for each question. Its
   - Totals: A summary row is displayed at the top showing per-student totals across recorded dates.
   - Save: Persists attendance and scores into `class.sqlite3`.
   - Timer/Alarm: A simple toolbar in Class View provides a countdown timer (enter seconds) with Start/Pause/Reset and an audible beep + popup when time expires.
+
+### v3.0.0
+- New: Merge Entities tool to combine multiple entity files and remove duplicates
+- New: Visual Keys Editor for creating/editing questions and answer keys (auto-opens if keys.json missing)
+
+### v2.2.0
+- Footer now shows total number of entries
+- Search window allows editing and deleting entries directly
+
+### v2.1.0
+- New: Remove Duplicates tool to auto-remove duplicate entries
+- Footer shows last modified date in both Gregorian and Shamsi (Persian) calendars
+- Live update of entity list after add, edit, delete, and search actions
+
+### v2.0.0
+- Bug fixes: PyInstaller/PyQt5 packaging, icon support, and data handling
+- New features: Edit and delete entries from the main table
 
 ## Using Class Management
 
