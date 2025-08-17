@@ -89,3 +89,4 @@ poetry.lock
 
 # Custom ignores
 entries.json
+class.sqlite3

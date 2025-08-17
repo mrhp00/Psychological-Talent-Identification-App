@@ -6,8 +6,10 @@ from datetime import datetime
 import jdatetime
 # PyQt5 imports for GUI components
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QMessageBox, QDialog, QHeaderView, QMenuBar, QAction, QFileDialog, QSpinBox, QTextEdit, QAbstractItemView, QProgressDialog
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QMessageBox, QDialog, QHeaderView, QMenuBar, QAction, QFileDialog, QSpinBox, QTextEdit, QAbstractItemView, QProgressDialog, QInputDialog
 )
+from PyQt5.QtWidgets import QScrollArea
+from PyQt5.QtWidgets import QCheckBox
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QIcon
 
@@ -45,192 +47,6 @@ def save_entries(entries):
     """
     with open(ENTRIES_FILE, 'w', encoding='utf-8') as f:
         json.dump(entries, f, ensure_ascii=False, indent=2)
-
-
-class AddEntryDialog(QDialog):
-    """
-    Dialog for adding a new entry (person's answers to the test).
-    """
-    def __init__(self, keys, descriptions, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle('Add Entry')
-        self.setWindowIcon(QIcon('YASA.ico'))
-        self.keys = keys
-        self.descriptions = descriptions
-        self.result_entry = None
-        layout = QVBoxLayout()
-        # Input fields for name, phone, and answers
-        self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText('Name')
-        self.phone_input = QLineEdit()
-        self.phone_input.setPlaceholderText('Phone')
-        self.answers_input = QLineEdit()
-        self.answers_input.setPlaceholderText(f'Answers ({len(self.keys)} letters, a-d)')
-        self.result_label = QLabel()
-        add_btn = QPushButton('Add')
-        add_btn.clicked.connect(self.add_entry)
-        layout.addWidget(QLabel('Name:'))
-        layout.addWidget(self.name_input)
-        layout.addWidget(QLabel('Phone:'))
-        layout.addWidget(self.phone_input)
-        layout.addWidget(QLabel('Answers:'))
-        layout.addWidget(self.answers_input)
-        layout.addWidget(add_btn)
-        layout.addWidget(self.result_label)
-        self.setLayout(layout)
-        self.setMinimumWidth(350)
-
-    def add_entry(self):
-        """
-        Validate input and calculate the total score and descriptions for the answers.
-        Save the result in self.result_entry and show a message box.
-        """
-        name = self.name_input.text().strip()
-        phone = self.phone_input.text().strip()
-        answers = self.answers_input.text().strip().lower()
-        # Validate: name, phone, answers length, and valid answer letters
-        if not (name and phone and len(answers) == len(self.keys) and all(c in 'abcd' for c in answers)):
-            self.result_label.setText('Invalid input!')
-            return
-        total = 0
-        descs = []
-        for i, ans in enumerate(answers):
-            key = self.keys[i][ans]
-            total += key
-            descs.append(self.descriptions[i][ans])
-        desc_text = '\n'.join(f'- {d}' for d in descs)
-        self.result_label.setText(f'Total Score: {total}\nDescriptions:\n{desc_text}')
-        self.result_entry = {'name': name, 'phone': phone, 'answers': answers, 'score': total}
-        QMessageBox.information(self, 'Entry Added', f'Total Score: {total}\nDescriptions:\n{desc_text}')
-        self.accept()
-
-
-class SearchDialog(QDialog):
-    """
-    Dialog for searching entries by name or phone and viewing their details.
-    """
-    def __init__(self, entries, keys, descriptions, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle('Search Entry')
-        self.setWindowIcon(QIcon('YASA.ico'))
-        self.entries = entries
-        self.keys = keys
-        self.descriptions = descriptions
-        layout = QVBoxLayout()
-        self.query_input = QLineEdit()
-        self.query_input.setPlaceholderText('Enter name or phone')
-        # Table to show search results
-        self.result_table = QTableWidget(0, 3)
-        self.result_table.setHorizontalHeaderLabels(['Name', 'Phone', 'Score'])
-        self.result_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.result_table.verticalHeader().setVisible(False)
-        self.result_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.result_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.result_table.setSelectionMode(QTableWidget.SingleSelection)
-        search_btn = QPushButton('Search')
-        search_btn.clicked.connect(self.do_search)
-        self.result_table.cellDoubleClicked.connect(self.show_details)
-        # Add Edit and Delete buttons for search results
-        btn_layout = QHBoxLayout()
-        self.edit_btn = QPushButton('Edit Selected')
-        self.edit_btn.clicked.connect(self.edit_selected)
-        self.delete_btn = QPushButton('Delete Selected')
-        self.delete_btn.clicked.connect(self.delete_selected)
-        btn_layout.addWidget(self.edit_btn)
-        btn_layout.addWidget(self.delete_btn)
-        layout.addWidget(self.query_input)
-        layout.addWidget(search_btn)
-        layout.addWidget(self.result_table)
-        layout.addLayout(btn_layout)
-        self.setLayout(layout)
-        self.setMinimumWidth(500)
-
-
-    def do_search(self):
-        """
-        Search for entries where the query matches the name or phone.
-        Populate the result table with matches.
-        """
-        q = self.query_input.text().strip()
-        results = [e for e in self.entries if q in e['name'] or q in e['phone']]
-        self.result_table.setRowCount(0)
-        for e in results:
-            row = self.result_table.rowCount()
-            self.result_table.insertRow(row)
-            self.result_table.setItem(row, 0, QTableWidgetItem(e['name']))
-            self.result_table.setItem(row, 1, QTableWidgetItem(e['phone']))
-            self.result_table.setItem(row, 2, QTableWidgetItem(str(e['score'])))
-        self.results = results
-
-
-    def show_details(self, row, col):
-        """
-        Show a message box with details and descriptions for the selected entry.
-        """
-        if not hasattr(self, 'results') or row >= len(self.results):
-            return
-        entry = self.results[row]
-        answers = entry['answers']
-        descs = [self.descriptions[i][a] for i, a in enumerate(answers)]
-        desc_text = '\n'.join(f'- {d}' for d in descs)
-        QMessageBox.information(self, 'Entry Details', f"Name: {entry['name']}\nPhone: {entry['phone']}\nTotal Score: {entry['score']}\nDescriptions:\n{desc_text}")
-
-    def edit_selected(self):
-        """
-        Edit the selected entry in the search results.
-        """
-        row = self.result_table.currentRow()
-        if not hasattr(self, 'results') or row < 0 or row >= len(self.results):
-            QMessageBox.warning(self, 'Edit Entry', 'Please select an entry to edit.')
-            return
-        entry = self.results[row]
-        dlg = AddEntryDialog(self.keys, self.descriptions, self)
-        dlg.setWindowIcon(QIcon('YASA.ico'))
-        dlg.name_input.setText(entry['name'])
-        dlg.phone_input.setText(entry['phone'])
-        dlg.answers_input.setText(entry['answers'])
-        if dlg.exec_() == QDialog.Accepted and dlg.result_entry:
-            # Load entries from file, update the entry, save, and refresh
-            if os.path.exists(ENTRIES_FILE):
-                with open(ENTRIES_FILE, encoding='utf-8') as f:
-                    all_entries = json.load(f)
-            else:
-                all_entries = []
-            for i, e in enumerate(all_entries):
-                if e['name'] == entry['name'] and e['phone'] == entry['phone'] and e['answers'] == entry['answers']:
-                    all_entries[i] = dlg.result_entry
-                    break
-            with open(ENTRIES_FILE, 'w', encoding='utf-8') as f:
-                json.dump(all_entries, f, ensure_ascii=False, indent=2)
-            # Update self.entries and results
-            self.entries = all_entries
-            self.do_search()
-            QMessageBox.information(self, 'Edit Entry', 'Entry updated successfully.')
-
-    def delete_selected(self):
-        """
-        Delete the selected entry in the search results.
-        """
-        row = self.result_table.currentRow()
-        if not hasattr(self, 'results') or row < 0 or row >= len(self.results):
-            QMessageBox.warning(self, 'Delete Entry', 'Please select an entry to delete.')
-            return
-        entry = self.results[row]
-        reply = QMessageBox.question(self, 'Delete Entry', f"Are you sure you want to delete entry for {entry['name']}?", QMessageBox.Yes | QMessageBox.No)
-        if reply == QMessageBox.Yes:
-            # Load entries from file, remove the entry, save, and refresh
-            if os.path.exists(ENTRIES_FILE):
-                with open(ENTRIES_FILE, encoding='utf-8') as f:
-                    all_entries = json.load(f)
-            else:
-                all_entries = []
-            all_entries = [e for e in all_entries if not (e['name'] == entry['name'] and e['phone'] == entry['phone'] and e['answers'] == entry['answers'])]
-            with open(ENTRIES_FILE, 'w', encoding='utf-8') as f:
-                json.dump(all_entries, f, ensure_ascii=False, indent=2)
-            # Update self.entries and results
-            self.entries = all_entries
-            self.do_search()
-            QMessageBox.information(self, 'Delete Entry', 'Entry deleted successfully.')
 
 
 class MergeEntitiesDialog(QDialog):
@@ -283,6 +99,7 @@ class MergeEntitiesDialog(QDialog):
                     self.parent().set_and_reload_entries_file(save_path)
             except Exception as ex:
                 QMessageBox.warning(self, 'Error', f'Failed to save: {ex}')
+ 
 
 
 class KeysEditorDialog(QDialog):
@@ -363,22 +180,23 @@ class KeysEditorDialog(QDialog):
             for idx, key in enumerate(['a','b','c','d']):
                 try:
                     k[key] = int(self.table.item(row, 1+idx*2).text())
-                except:
+                except Exception:
                     k[key] = 0
                 d[key] = self.table.item(row, 2+idx*2).text()
             self.keys[row] = k
             self.descriptions[row] = d
+
         try:
             with open(KEYS_FILE, 'w', encoding='utf-8') as f:
                 json.dump({'keys': self.keys, 'descriptions': self.descriptions}, f, ensure_ascii=False, indent=2)
             QMessageBox.information(self, 'Saved', 'Keys saved successfully.')
-            # --- ABSOLUTE FIX: Always recalculate and update all scores in entries.json after saving keys ---
+
+            # Recalculate scores in entries.json
             def recalc_scores():
                 if os.path.exists(ENTRIES_FILE):
                     try:
                         with open(ENTRIES_FILE, encoding='utf-8') as f:
                             entries = json.load(f)
-                        n = len(entries)
                         for i, e in enumerate(entries):
                             answers = e.get('answers', '')
                             total = 0
@@ -390,7 +208,8 @@ class KeysEditorDialog(QDialog):
                             json.dump(entries, f2, ensure_ascii=False, indent=2)
                     except Exception:
                         pass
-            # Always update scores in file, then update main window UI if present
+
+            # Refresh main window after a short delay
             def do_refresh():
                 mainwin = self.parent()
                 while mainwin and not isinstance(mainwin, QMainWindow):
@@ -399,15 +218,684 @@ class KeysEditorDialog(QDialog):
                     for widget in QApplication.topLevelWidgets():
                         if isinstance(widget, QMainWindow):
                             mainwin = widget
-                            break
-                if mainwin and hasattr(mainwin, 'recalculate_all_scores_and_reload_keys'):
-                    mainwin.recalculate_all_scores_and_reload_keys()
-            # First recalc scores, then refresh main window after a short delay
-            recalc_scores()  # Update file immediately
-            QTimer.singleShot(200, do_refresh)  # Then refresh main window after file update
+                recalc_scores()
+                QTimer.singleShot(200, lambda: None)
+
             self.accept()
+            # schedule UI refresh; main window will reload entries when keys editor closes
+            QTimer.singleShot(250, do_refresh)
         except Exception as ex:
             QMessageBox.warning(self, 'Error', f'Failed to save: {ex}')
+
+        # --- Classes dialog and helpers (non-invasive, uses SQLite) ---
+class ClassEditDialog(QDialog):
+    def __init__(self, parent=None, name='', detail='', days='', start_time='', end_time=''):
+        super().__init__(parent)
+        self.setWindowTitle('Edit Class')
+        layout = QVBoxLayout()
+        self.name_input = QLineEdit(name)
+        self.detail_input = QLineEdit(detail)
+        days_layout = QHBoxLayout()
+        self.days_checks = []
+        days_of_week = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday']
+        for d in days_of_week:
+            cb = QCheckBox(d)
+            if d in days.split(','):
+                cb.setChecked(True)
+            self.days_checks.append(cb)
+            days_layout.addWidget(cb)
+        self.start_time_input = QLineEdit(start_time)
+        self.end_time_input = QLineEdit(end_time)
+        layout.addWidget(QLabel('Name:'))
+        layout.addWidget(self.name_input)
+        layout.addWidget(QLabel('Detail:'))
+        layout.addWidget(self.detail_input)
+        layout.addWidget(QLabel('Days of Week:'))
+        layout.addLayout(days_layout)
+        layout.addWidget(QLabel('Start Time:'))
+        layout.addWidget(self.start_time_input)
+        layout.addWidget(QLabel('End Time:'))
+        layout.addWidget(self.end_time_input)
+        btns = QHBoxLayout()
+        save_btn = QPushButton('Save')
+        save_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton('Cancel')
+        cancel_btn.clicked.connect(self.reject)
+        btns.addWidget(save_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+        self.setLayout(layout)
+
+    def accept(self):
+        self.name = self.name_input.text().strip()
+        self.detail = self.detail_input.text().strip()
+        self.days = ','.join([cb.text() for cb in self.days_checks if cb.isChecked()])
+        self.start_time = self.start_time_input.text().strip()
+        self.end_time = self.end_time_input.text().strip()
+        if not self.name:
+            QMessageBox.warning(self, 'Error', 'Name required')
+            return
+        super().accept()
+
+
+class ClassesDialog(QDialog):
+    """List/add/edit/delete classes stored in class.sqlite3"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Classes')
+        self.setMinimumWidth(600)
+        layout = QVBoxLayout()
+        self.table = QTableWidget(0,5)
+        self.table.setHorizontalHeaderLabels(['Name','Detail','Days','Start','End'])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SingleSelection)
+        self.table.cellDoubleClicked.connect(self.open_class_view)
+        layout.addWidget(self.table)
+        btns = QHBoxLayout()
+        add_btn = QPushButton('Add Class')
+        add_btn.clicked.connect(self.add_class)
+        edit_btn = QPushButton('Edit Class')
+        edit_btn.clicked.connect(self.edit_class)
+        del_btn = QPushButton('Delete Class')
+        del_btn.clicked.connect(self.delete_class)
+        sort_btn = QPushButton('Sort by Name')
+        sort_btn.clicked.connect(lambda: self.load_classes(order_by='name'))
+        btns.addWidget(add_btn)
+        btns.addWidget(edit_btn)
+        btns.addWidget(del_btn)
+        btns.addWidget(sort_btn)
+        layout.addLayout(btns)
+        self.setLayout(layout)
+        self.db_path = 'class.sqlite3'
+        self.load_classes()
+
+    def load_classes(self, order_by='id'):
+        import sqlite3
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        q = 'SELECT id,name,detail,days,start_time,end_time FROM classes'
+        if order_by=='name':
+            q += ' ORDER BY name COLLATE NOCASE'
+        c.execute(q)
+        rows = c.fetchall()
+        self.table.setRowCount(0)
+        for r in rows:
+            i = self.table.rowCount()
+            self.table.insertRow(i)
+            for col, val in enumerate(r[1:]):
+                self.table.setItem(i, col, QTableWidgetItem(str(val)))
+        conn.close()
+
+    def add_class(self):
+        dlg = ClassEditDialog(self)
+        if dlg.exec_() == QDialog.Accepted:
+            import sqlite3
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute('INSERT INTO classes (name,detail,days,start_time,end_time) VALUES (?,?,?,?,?)',
+                      (dlg.name, dlg.detail, dlg.days, dlg.start_time, dlg.end_time))
+            conn.commit()
+            conn.close()
+            self.load_classes()
+
+    def edit_class(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, 'Edit', 'Select a class')
+            return
+        name = self.table.item(row,0).text()
+        detail = self.table.item(row,1).text()
+        days = self.table.item(row,2).text()
+        start = self.table.item(row,3).text()
+        end = self.table.item(row,4).text()
+        dlg = ClassEditDialog(self, name, detail, days, start, end)
+        if dlg.exec_() == QDialog.Accepted:
+            import sqlite3
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute('UPDATE classes SET name=?,detail=?,days=?,start_time=?,end_time=? WHERE name=?',
+                      (dlg.name, dlg.detail, dlg.days, dlg.start_time, dlg.end_time, name))
+            conn.commit()
+            conn.close()
+            self.load_classes()
+
+    def delete_class(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, 'Delete', 'Select a class')
+            return
+        name = self.table.item(row,0).text()
+        reply = QMessageBox.question(self, 'Delete', f'Delete class {name}?', QMessageBox.Yes|QMessageBox.No)
+        if reply==QMessageBox.Yes:
+            import sqlite3
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute('DELETE FROM classes WHERE name=?', (name,))
+            conn.commit()
+            conn.close()
+            self.load_classes()
+
+    def open_class_view(self, row, col):
+        # placeholder for part 2: open class-specific view
+        cid_item = None
+        # try to fetch id by name
+        name = self.table.item(row,0).text()
+        import sqlite3
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('SELECT id FROM classes WHERE name=?', (name,))
+        r = c.fetchone()
+        conn.close()
+        if r:
+            cid = r[0]
+            dlg = ClassViewDialog(self, class_id=cid)
+            dlg.exec_()
+        else:
+            QMessageBox.information(self, 'Class View', 'Class not found')
+
+
+class ClassViewDialog(QDialog):
+    """Manage students (from entries.json), class dates, attendance (present + score).
+    Layout: dates as rows, students as columns. Total row is shown at top for easy access.
+    Persists to class.sqlite3 tables created by setup_class_db()."""
+
+    def __init__(self, parent=None, class_id=None):
+        super().__init__(parent)
+        self.class_id = class_id
+        self.db_path = 'class.sqlite3'
+        self.setWindowTitle('Class View')
+        self.setMinimumWidth(900)
+
+        # Build UI
+        main = QVBoxLayout()
+
+        # Top controls
+        top = QHBoxLayout()
+        self.import_btn = QPushButton('Import Students from entries.json')
+        self.delete_student_btn = QPushButton('Delete Student')
+        self.add_date_btn = QPushButton('Add Date')
+        self.del_date_btn = QPushButton('Delete Selected Date')
+        top.addWidget(self.import_btn)
+        top.addWidget(self.delete_student_btn)
+        top.addWidget(self.add_date_btn)
+        top.addWidget(self.del_date_btn)
+        top.addStretch()
+        main.addLayout(top)
+
+        # Table
+        self.table = QTableWidget()
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectItems)
+        main.addWidget(self.table)
+
+        # Footer
+        footer = QHBoxLayout()
+        save_btn = QPushButton('Save')
+        close_btn = QPushButton('Close')
+        footer.addStretch()
+        footer.addWidget(save_btn)
+        footer.addWidget(close_btn)
+        main.addLayout(footer)
+
+        self.setLayout(main)
+
+        # Connect signals
+        self.import_btn.clicked.connect(self.import_students)
+        self.delete_student_btn.clicked.connect(self.delete_student)
+        self.add_date_btn.clicked.connect(self.add_date)
+        self.del_date_btn.clicked.connect(self.delete_date)
+        save_btn.clicked.connect(self.save_all)
+        close_btn.clicked.connect(self.accept)
+
+        # Add timer UI after layout exists
+        self._timer_added = False
+        self.add_timer_ui()
+
+        # Load data
+        self.load_students()
+        self.load_dates()
+        self.build_table()
+
+    def connect_db(self):
+        import sqlite3
+        return sqlite3.connect(self.db_path)
+
+    def load_students(self):
+        conn = self.connect_db()
+        c = conn.cursor()
+        c.execute('SELECT id,name,phone,answers FROM class_students WHERE class_id=?', (self.class_id,))
+        rows = c.fetchall()
+        conn.close()
+        self.students = [{'id': r[0], 'name': r[1], 'phone': r[2], 'answers': r[3]} for r in rows]
+
+    def load_dates(self):
+        conn = self.connect_db()
+        c = conn.cursor()
+        c.execute('SELECT id,date FROM class_dates WHERE class_id=? ORDER BY id', (self.class_id,))
+        rows = c.fetchall()
+        conn.close()
+        self.dates = [{'id': r[0], 'date': r[1]} for r in rows]
+
+    def build_table(self):
+        cols = len(self.students)
+        rows = len(self.dates) + 1
+        if cols == 0:
+            self.table.setColumnCount(1)
+            self.table.setRowCount(1)
+            self.table.setHorizontalHeaderLabels(['No students'])
+            self.table.setItem(0, 0, QTableWidgetItem('No students. Use Import Students.'))
+            return
+
+        self.table.clear()
+        self.table.setColumnCount(cols)
+        self.table.setRowCount(rows)
+        headers = [s['name'] for s in self.students]
+        self.table.setHorizontalHeaderLabels(headers)
+
+        # Total row
+        for c_idx, student in enumerate(self.students):
+            total = self.calculate_student_total(student['id'])
+            item = QTableWidgetItem(str(total))
+            item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            self.table.setItem(0, c_idx, item)
+
+        # Dates rows
+        for r_idx, date in enumerate(self.dates, start=1):
+            for c_idx, student in enumerate(self.students):
+                widget = QWidget()
+                layout = QHBoxLayout()
+                cb = QCheckBox()
+                score_edit = QLineEdit()
+                score_edit.setFixedWidth(60)
+                att = self.load_attendance(date['id'], student['id'])
+                cb.setChecked(bool(att and att.get('present')))
+                score_edit.setText(str(att.get('score')) if att and att.get('score') is not None else '')
+                layout.addWidget(cb)
+                layout.addWidget(score_edit)
+                layout.setContentsMargins(0, 0, 0, 0)
+                widget.setLayout(layout)
+                self.table.setCellWidget(r_idx, c_idx, widget)
+
+        vlabels = ['Total'] + [d['date'] for d in self.dates]
+        self.table.setVerticalHeaderLabels(vlabels)
+        self.table.resizeColumnsToContents()
+
+    def import_students(self):
+        dlg = StudentPickerDialog(self)
+        if dlg.exec_() != QDialog.Accepted or not hasattr(dlg, 'selected'):
+            return
+        to_add = dlg.selected
+        conn = self.connect_db()
+        c = conn.cursor()
+        inserted = 0
+        for e in to_add:
+            name = e.get('name')
+            phone = e.get('phone')
+            answers = e.get('answers', '')
+            c.execute('SELECT id FROM class_students WHERE class_id=? AND name=? AND phone=?', (self.class_id, name, phone))
+            if c.fetchone():
+                continue
+            c.execute('INSERT INTO class_students (class_id,name,phone,answers) VALUES (?,?,?,?)', (self.class_id, name, phone, answers))
+            inserted += 1
+        conn.commit()
+        conn.close()
+        self.load_students()
+        self.build_table()
+        QMessageBox.information(self, 'Import Students', f'Added {inserted} students.')
+
+    def add_timer_ui(self):
+        if getattr(self, '_timer_added', False):
+            return
+        toolbar = QHBoxLayout()
+        self.timer_label = QLabel('Timer: 00:00')
+        self.timer_duration = QLineEdit()
+        self.timer_duration.setPlaceholderText('Seconds (e.g. 300)')
+        self.timer_start = QPushButton('Start')
+        self.timer_pause = QPushButton('Pause')
+        self.timer_reset = QPushButton('Reset')
+        toolbar.addWidget(self.timer_label)
+        toolbar.addWidget(QLabel('Duration:'))
+        toolbar.addWidget(self.timer_duration)
+        toolbar.addWidget(self.timer_start)
+        toolbar.addWidget(self.timer_pause)
+        toolbar.addWidget(self.timer_reset)
+        toolbar.addStretch()
+        # Insert at top of layout
+        lay = self.layout()
+        if lay is not None:
+            lay.insertLayout(0, toolbar)
+        self._timer_seconds = 0
+        self._timer_running = False
+        self._timer_target = None
+        self._qtimer = QTimer(self)
+        self._qtimer.setInterval(1000)
+        self._qtimer.timeout.connect(self._timer_tick)
+        self.timer_start.clicked.connect(self._timer_start)
+        self.timer_pause.clicked.connect(self._timer_pause)
+        self.timer_reset.clicked.connect(self._timer_reset)
+        self._timer_added = True
+
+    def _timer_tick(self):
+        if not self._timer_running:
+            return
+        if self._timer_target is not None:
+            self._timer_seconds -= 1
+            secs = max(0, self._timer_seconds)
+            m, s = divmod(secs, 60)
+            self.timer_label.setText(f'Time left: {m:02d}:{s:02d}')
+            if secs <= 0:
+                self._timer_running = False
+                self._qtimer.stop()
+                try:
+                    QApplication.beep()
+                except Exception:
+                    pass
+                QMessageBox.information(self, 'Timer', 'Time is up!')
+                self._timer_target = None
+        else:
+            self._timer_seconds += 1
+            m, s = divmod(self._timer_seconds, 60)
+            self.timer_label.setText(f'Timer: {m:02d}:{s:02d}')
+
+    def _timer_start(self):
+        if not getattr(self, '_timer_added', False):
+            self.add_timer_ui()
+        dur_text = self.timer_duration.text().strip()
+        if dur_text:
+            try:
+                secs = int(dur_text)
+                self._timer_seconds = secs
+                self._timer_target = secs
+            except Exception:
+                self._timer_target = None
+        else:
+            self._timer_target = None
+        self._timer_running = True
+        self._qtimer.start()
+
+    def _timer_pause(self):
+        self._timer_running = False
+        self._qtimer.stop()
+
+    def _timer_reset(self):
+        self._timer_running = False
+        self._qtimer.stop()
+        self._timer_target = None
+        self._timer_seconds = 0
+        if hasattr(self, 'timer_label'):
+            self.timer_label.setText('Timer: 00:00')
+
+    def delete_student(self):
+        col = self.table.currentColumn()
+        if col < 0 or col >= len(self.students):
+            QMessageBox.warning(self, 'Delete Student', 'Select a student column to delete')
+            return
+        student = self.students[col]
+        reply = QMessageBox.question(self, 'Delete Student', f'Remove {student["name"]} from class? This will delete attendance records.', QMessageBox.Yes | QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        conn = self.connect_db()
+        c = conn.cursor()
+        c.execute('DELETE FROM class_students WHERE id=?', (student['id'],))
+        c.execute('DELETE FROM attendance WHERE student_id=? AND class_id=?', (student['id'], self.class_id))
+        conn.commit()
+        conn.close()
+        self.load_students()
+        self.build_table()
+
+    def add_date(self):
+        text, ok = QInputDialog.getText(self, 'Add Date', 'Enter date (YYYY-MM-DD):')
+        if not ok or not text:
+            return
+        conn = self.connect_db()
+        c = conn.cursor()
+        c.execute('INSERT INTO class_dates (class_id,date) VALUES (?,?)', (self.class_id, text))
+        conn.commit()
+        conn.close()
+        self.load_dates()
+        self.build_table()
+
+    def delete_date(self):
+        row = self.table.currentRow()
+        if row <= 0 or row > len(self.dates):
+            QMessageBox.warning(self, 'Delete Date', 'Select a date row to delete')
+            return
+        date = self.dates[row - 1]
+        reply = QMessageBox.question(self, 'Delete Date', f'Delete date {date["date"]}?', QMessageBox.Yes | QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        conn = self.connect_db()
+        c = conn.cursor()
+        c.execute('DELETE FROM class_dates WHERE id=?', (date['id'],))
+        c.execute('DELETE FROM attendance WHERE date_id=?', (date['id'],))
+        conn.commit()
+        conn.close()
+        self.load_dates()
+        self.build_table()
+
+    def load_attendance(self, date_id, student_id):
+        conn = self.connect_db()
+        c = conn.cursor()
+        c.execute('SELECT present,score FROM attendance WHERE date_id=? AND student_id=?', (date_id, student_id))
+        r = c.fetchone()
+        conn.close()
+        if r:
+            return {'present': r[0], 'score': r[1]}
+        return None
+
+    def save_all(self):
+        if len(self.students) == 0:
+            QMessageBox.information(self, 'Save', 'No students to save')
+            return
+        conn = self.connect_db()
+        c = conn.cursor()
+        for r_idx, date in enumerate(self.dates, start=1):
+            for c_idx, student in enumerate(self.students):
+                widget = self.table.cellWidget(r_idx, c_idx)
+                if not widget:
+                    continue
+                cb = widget.layout().itemAt(0).widget()
+                score_edit = widget.layout().itemAt(1).widget()
+                present = 1 if cb.isChecked() else 0
+                score_text = score_edit.text().strip()
+                score_val = score_text if score_text != '' else None
+                c.execute('SELECT id FROM attendance WHERE date_id=? AND student_id=?', (date['id'], student['id']))
+                if c.fetchone():
+                    c.execute('UPDATE attendance SET present=?, score=? WHERE date_id=? AND student_id=?', (present, score_val, date['id'], student['id']))
+                else:
+                    c.execute('INSERT INTO attendance (class_id,date_id,student_id,present,score) VALUES (?,?,?,?,?)', (self.class_id, date['id'], student['id'], present, score_val))
+        conn.commit()
+        conn.close()
+        self.build_table()
+        QMessageBox.information(self, 'Saved', 'Attendance saved.')
+
+    def calculate_student_total(self, student_id):
+        conn = self.connect_db()
+        c = conn.cursor()
+        c.execute('SELECT score FROM attendance WHERE student_id=? AND class_id=?', (student_id, self.class_id))
+        rows = c.fetchall()
+        conn.close()
+        total = 0
+        for r in rows:
+            try:
+                val = float(r[0]) if r[0] is not None and r[0] != '' else 0
+            except Exception:
+                val = 0
+            total += val
+        return total
+
+
+class StudentPickerDialog(QDialog):
+    """Searchable dialog to pick students from entries.json to add to a class."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Select Students')
+        self.resize(480, 400)
+        self._entries = load_entries()
+        self.selected = []
+
+        v = QVBoxLayout()
+        h = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText('Search by name or phone...')
+        self.find_btn = QPushButton('Find')
+        h.addWidget(self.search)
+        h.addWidget(self.find_btn)
+        v.addLayout(h)
+
+        self.list_widget = QWidget()
+        self.list_layout = QVBoxLayout()
+        self.list_widget.setLayout(self.list_layout)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(self.list_widget)
+        v.addWidget(self.scroll)
+
+        btns = QHBoxLayout()
+        self.add_btn = QPushButton('Add Selected')
+        self.cancel_btn = QPushButton('Cancel')
+        btns.addStretch()
+        btns.addWidget(self.add_btn)
+        btns.addWidget(self.cancel_btn)
+        v.addLayout(btns)
+
+        self.setLayout(v)
+
+        self._checkboxes = []
+        self.find_btn.clicked.connect(self._do_search)
+        self.search.returnPressed.connect(self._do_search)
+        self.add_btn.clicked.connect(self._add_selected)
+        self.cancel_btn.clicked.connect(self.reject)
+
+        # initial populate
+        self._do_search()
+
+    def _do_search(self):
+        term = self.search.text().strip().lower()
+        # clear
+        for i in reversed(range(self.list_layout.count())):
+            item = self.list_layout.takeAt(i)
+            if item.widget():
+                item.widget().deleteLater()
+        self._checkboxes = []
+        for e in self._entries:
+            name = e.get('name','')
+            phone = e.get('phone','')
+            text = f"{name} | {phone}"
+            if term and term not in text.lower():
+                continue
+            row = QHBoxLayout()
+            cb = QCheckBox(text)
+            row.addWidget(cb)
+            widget = QWidget()
+            widget.setLayout(row)
+            self.list_layout.addWidget(widget)
+            self._checkboxes.append((cb, e))
+
+    def _add_selected(self):
+        selected = []
+        for cb, e in self._checkboxes:
+            if cb.isChecked():
+                selected.append(e)
+        if not selected:
+            QMessageBox.information(self, 'No Selection', 'Please select at least one student to add')
+            return
+        self.selected = selected
+        self.accept()
+
+    
+
+
+class AddEntryDialog(QDialog):
+    """Minimal Add/Edit entry dialog used by MainWindow."""
+    def __init__(self, keys, descriptions, parent=None):
+        super().__init__(parent)
+        self.keys = keys
+        self.descriptions = descriptions
+        self.result_entry = None
+        self.setWindowTitle('Add / Edit Entry')
+        layout = QVBoxLayout()
+        self.name_input = QLineEdit()
+        self.phone_input = QLineEdit()
+        self.answers_input = QLineEdit()
+        layout.addWidget(QLabel('Name:'))
+        layout.addWidget(self.name_input)
+        layout.addWidget(QLabel('Phone:'))
+        layout.addWidget(self.phone_input)
+        layout.addWidget(QLabel('Answers (e.g. abcd...):'))
+        layout.addWidget(self.answers_input)
+        btns = QHBoxLayout()
+        ok = QPushButton('OK')
+        cancel = QPushButton('Cancel')
+        ok.clicked.connect(self.on_ok)
+        cancel.clicked.connect(self.reject)
+        btns.addWidget(ok)
+        btns.addWidget(cancel)
+        layout.addLayout(btns)
+        self.setLayout(layout)
+
+    def on_ok(self):
+        name = self.name_input.text().strip()
+        phone = self.phone_input.text().strip()
+        answers = self.answers_input.text().strip()
+        if not name:
+            QMessageBox.warning(self, 'Error', 'Name required')
+            return
+        score = 0
+        for idx, ch in enumerate(answers):
+            if idx < len(self.keys) and ch in self.keys[idx]:
+                try:
+                    score += int(self.keys[idx][ch])
+                except Exception:
+                    pass
+        self.result_entry = {'name': name, 'phone': phone, 'answers': answers, 'score': score}
+        self.accept()
+
+
+class SearchDialog(QDialog):
+    """Minimal search dialog for entries. Allows viewing results."""
+    def __init__(self, entries, keys, descriptions, parent=None):
+        super().__init__(parent)
+        self.entries = entries
+        self.keys = keys
+        self.descriptions = descriptions
+        self.setWindowTitle('Search Entries')
+        self.resize(600, 400)
+        v = QVBoxLayout()
+        h = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText('Search by name or phone')
+        self.find_btn = QPushButton('Find')
+        h.addWidget(self.search)
+        h.addWidget(self.find_btn)
+        v.addLayout(h)
+        self.table = QTableWidget(0,3)
+        self.table.setHorizontalHeaderLabels(['Name','Phone','Score'])
+        v.addWidget(self.table)
+        btns = QHBoxLayout()
+        close = QPushButton('Close')
+        close.clicked.connect(self.accept)
+        btns.addStretch()
+        btns.addWidget(close)
+        v.addLayout(btns)
+        self.setLayout(v)
+        self.find_btn.clicked.connect(self.do_search)
+        self.search.returnPressed.connect(self.do_search)
+        self.do_search()
+
+    def do_search(self):
+        term = self.search.text().strip().lower()
+        self.table.setRowCount(0)
+        for e in self.entries:
+            if term and term not in (e.get('name','').lower() + ' ' + e.get('phone','')):
+                continue
+            r = self.table.rowCount()
+            self.table.insertRow(r)
+            self.table.setItem(r,0, QTableWidgetItem(e.get('name','')))
+            self.table.setItem(r,1, QTableWidgetItem(e.get('phone','')))
+            self.table.setItem(r,2, QTableWidgetItem(str(e.get('score',''))))
 
 
 class MainWindow(QMainWindow):
@@ -418,18 +906,23 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle('Psychological Talent Identification')
         self.setWindowIcon(QIcon('YASA.ico'))
-        # Load keys and descriptions from keys.json
+
+        # Ensure keys exist; if not, open editor once
         if not os.path.exists(KEYS_FILE):
             dlg = KeysEditorDialog(self)
             dlg.exec_()
         self.keys, self.descriptions = load_keys()
-        # Load all entries from entries.json
+
+        # Load entries
         self.entries = load_entries()
+
+        # Central widget and layout
         self.central = QWidget()
         self.setCentralWidget(self.central)
         layout = QVBoxLayout()
         btn_layout = QHBoxLayout()
-        # Add Entry, Edit, Delete, Search, and Remove Duplicates buttons
+
+        # Top buttons
         add_btn = QPushButton('Add Entry')
         add_btn.clicked.connect(self.open_add_entry)
         edit_btn = QPushButton('Edit Entry')
@@ -445,7 +938,8 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(delete_btn)
         btn_layout.addWidget(search_btn)
         btn_layout.addWidget(dedup_btn)
-        # Table to show all entries
+
+        # Table
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(['Name', 'Phone', 'Score'])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -455,23 +949,28 @@ class MainWindow(QMainWindow):
         self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.horizontalHeader().sectionClicked.connect(self.sort_table)
         self.table.cellDoubleClicked.connect(self.show_details)
+
         layout.addLayout(btn_layout)
         layout.addWidget(self.table)
-        # Footer for last modified date
+
+        # Footer
         self.footer_label = QLabel()
         self.footer_label.setAlignment(Qt.AlignRight)
         layout.addWidget(self.footer_label)
+
         self.central.setLayout(layout)
         self.refresh_table()
         self.update_footer()
         self.setMinimumWidth(600)
-        # Add menu bar and About action
+
+        # Menu bar
         menubar = self.menuBar()
         help_menu = menubar.addMenu('Help')
         about_action = QAction('About', self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
-        # Add Tools menu for merge and keys editor
+
+        # Tools menu
         tools_menu = menubar.addMenu('Tools')
         merge_action = QAction('Merge Entity Files', self)
         merge_action.triggered.connect(self.open_merge_entities)
@@ -479,8 +978,17 @@ class MainWindow(QMainWindow):
         edit_keys_action = QAction('Edit Keys', self)
         edit_keys_action.triggered.connect(self.open_keys_editor)
         tools_menu.addAction(edit_keys_action)
+
+        # Class Management menu (non-invasive addition)
+        class_menu = menubar.addMenu('Class Management')
+        classes_action = QAction('Classes', self)
+        classes_action.triggered.connect(self.open_class_management)
+        class_menu.addAction(classes_action)
+
         self.sort_column = 0
         self.sort_order = Qt.AscendingOrder
+
+    # Class Management menu is added in __init__ to avoid module-scope references
 
 
     def show_about(self):
@@ -647,6 +1155,55 @@ class MainWindow(QMainWindow):
             self.keys, self.descriptions = load_keys()
             self.entries = load_entries()
             self.refresh_table()
+    # --- Class management DB helper ---
+    def setup_class_db(self):
+        import sqlite3
+        db_path = 'class.sqlite3'
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+        # classes table: id, name, detail, days (csv), start_time, end_time
+        c.execute('''CREATE TABLE IF NOT EXISTS classes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            detail TEXT,
+            days TEXT,
+            start_time TEXT,
+            end_time TEXT
+        )''')
+        # class_students: id, class_id, entry_name, entry_phone, entry_answers
+        c.execute('''CREATE TABLE IF NOT EXISTS class_students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            class_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            phone TEXT,
+            answers TEXT
+        )''')
+        # class_dates: id, class_id, date TEXT
+        c.execute('''CREATE TABLE IF NOT EXISTS class_dates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            class_id INTEGER NOT NULL,
+            date TEXT
+        )''')
+        # attendance: id, class_id, date_id, student_id, present INTEGER, score TEXT
+        c.execute('''CREATE TABLE IF NOT EXISTS attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            class_id INTEGER NOT NULL,
+            date_id INTEGER NOT NULL,
+            student_id INTEGER NOT NULL,
+            present INTEGER DEFAULT 0,
+            score TEXT
+        )''')
+        conn.commit()
+        conn.close()
+
+    def open_class_management(self):
+        # Ensure DB exists
+        try:
+            self.setup_class_db()
+        except Exception:
+            pass
+        dlg = ClassesDialog(self)
+        dlg.exec_()
 # Entry point for the application
 if __name__ == '__main__':
     app = QApplication(sys.argv)
