@@ -120,6 +120,30 @@ The `keys.json` file defines the scoring and descriptions for each question. Its
 - Bug fixes: PyInstaller/PyQt5 packaging, icon support, and data handling
 - New features: Edit and delete entries from the main table
 
+### v3.0.0 (Class Management)
+- New: Class Management menu available under the menu bar. Use Tools -> Class Management -> Classes to open the Classes manager.
+- Data persistence: Classes, class students, class dates and attendance are stored in a separate SQLite database named `class.sqlite3`. The database is created automatically when you first open Class Management. If you prefer not to include this DB in your Git repository, add `class.sqlite3` to your `.gitignore` file.
+- Classes dialog: Create, edit, delete classes and double-click a class to open the Class View.
+- Class View features:
+  - Student Picker: a searchable list of entries from `entries.json` allowing selective addition of students to a class (no automatic importing of all students).
+  - Dates: Add or delete dates (rows). Each date row lets you mark a student present and enter a small numeric score.
+  - Totals: A summary row is displayed at the top showing per-student totals across recorded dates.
+  - Save: Persists attendance and scores into `class.sqlite3`.
+  - Timer/Alarm: A simple toolbar in Class View provides a countdown timer (enter seconds) with Start/Pause/Reset and an audible beep + popup when time expires.
+
+## Using Class Management
+
+1. Open the menu: Tools -> Class Management -> Classes.
+2. Create a new class using Add Class and define name, days, start/end times.
+3. Double-click a class row to open Class View.
+4. In Class View use "Import Students" to open the Student Picker and search/select students from `entries.json`.
+5. Use Add Date to record a new session date. For each student/date mark Present and/or enter a score. Click Save to persist.
+6. Totals are shown at the top. Use Delete Student to remove a student from a class (this also deletes attendance records for that student in the class).
+
+## Notes for developers
+- The class feature was added in a non-invasive way so existing JSON-based entry flows are unchanged. All class-related data is kept in `class.sqlite3`.
+- Minimal dialog implementations were added for AddEntry and Search to ensure compatibility; you can replace or enhance those dialogs as needed.
+
 ## Author
 Made by: Mohammadreza Hassanpour Koumeleh 
 Email: engineer.mrhp@gmail.com
