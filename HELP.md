@@ -120,7 +120,7 @@ The `keys.json` file defines the scoring and descriptions for each question. Its
 - Bug fixes: PyInstaller/PyQt5 packaging, icon support, and data handling
 - New features: Edit and delete entries from the main table
 
-### v3.0.0 (Class Management)
+### v4.0.0 (Class Management)
 - New: Class Management menu available under the menu bar. Use Tools -> Class Management -> Classes to open the Classes manager.
 - Data persistence: Classes, class students, class dates and attendance are stored in a separate SQLite database named `class.sqlite3`. The database is created automatically when you first open Class Management. If you prefer not to include this DB in your Git repository, add `class.sqlite3` to your `.gitignore` file.
 - Classes dialog: Create, edit, delete classes and double-click a class to open the Class View.

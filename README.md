@@ -31,7 +31,7 @@ A simple, user-friendly desktop application for recording, scoring, and searchin
 ### v3.0.0
 - New: Merge Entities tool to combine multiple entity files and remove duplicates
 - New: Visual Keys Editor for creating/editing questions and answer keys (auto-opens if keys.json missing)
-### v3.0.0 (Class Management)
+### v4.0.0 (Class Management)
 - New: Class Management menu (Tools -> Class Management -> Classes) — manage classes without changing existing app flows.
 - New: Classes stored separately in `class.sqlite3` (created on-demand). This keeps `entries.json` unchanged — class membership and attendance are persisted in SQLite.
 - New: Class View dialog — manage class students, add/remove class dates, record attendance (present checkbox) and a small per-date score for each student. Totals are shown at the top for quick review.
