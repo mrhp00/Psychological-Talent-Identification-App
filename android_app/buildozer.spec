@@ -14,8 +14,7 @@ android.ndk = 23b
 # Do not hardcode android.ndk_path; let Buildozer / p4a manage NDK download on CI
 presplash.filename = %(source.dir)s/data/presplash.png
 
-[app]
-# (buildozer will fill other defaults)
+# Removed duplicate [app] section (was causing DuplicateSectionError)
 
 [buildozer]
 log_level = 2
