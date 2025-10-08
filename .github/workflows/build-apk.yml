@@ -94,7 +94,8 @@ jobs:
           # Ensure a clean environment for buildozer
           . ../venv/bin/activate
           # Run a debug build; buildozer will download SDK/NDK as needed
-          buildozer -v android debug
+          # Capture full stdout/stderr into a file so we can inspect failures later
+          buildozer -v android debug 2>&1 | tee buildozer-output.log
 
       - name: Collect build logs (always)
         if: always()
@@ -111,6 +112,10 @@ jobs:
           fi
           # collect any log files
           find . -type f -name "*.log" -maxdepth 6 -print0 | xargs -0 -I{} bash -c 'mkdir -p "$(dirname build_logs/{})"; cp "{}" "build_logs/{}"' || true
+          # also copy the captured buildozer console output if present
+          if [ -f "android_app/buildozer-output.log" ]; then
+            cp -v android_app/buildozer-output.log build_logs/ || true
+          fi
           zip -r build_logs.zip build_logs || true
 
       - name: Upload build logs (always)
