@@ -135,6 +135,17 @@ jobs:
           find android_app -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 | xargs -0 -I{} bash -c 'mkdir -p "apk_artifacts/$(dirname "{}")"; cp -v "{}" "apk_artifacts/{}"' || true
           # Also search the workspace root in case buildozer placed artifacts elsewhere
           find . -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -maxdepth 6 -print0 | xargs -0 -I{} bash -c 'mkdir -p "apk_artifacts/$(dirname "{}")"; cp -v "{}" "apk_artifacts/{}"' || true
+          # Additionally, Buildozer may use the runner temporary directory (HOME was set to $RUNNER_TEMP)
+          # Copy any package files from $RUNNER_TEMP/.buildozer into apk_artifacts preserving relative paths
+          if [ -d "$RUNNER_TEMP/.buildozer" ]; then
+            echo "Searching $RUNNER_TEMP/.buildozer for APK/AAB/APKS files..."
+            find "$RUNNER_TEMP/.buildozer" -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 \
+              | while IFS= read -r -d '' f; do
+                  rel="${f#$RUNNER_TEMP/}"
+                  mkdir -p "apk_artifacts/$(dirname "$rel")"
+                  cp -v "$f" "apk_artifacts/$rel" || true
+                done || true
+          fi
           echo "Collected APK artifacts:" 
           ls -laR apk_artifacts || true
 
