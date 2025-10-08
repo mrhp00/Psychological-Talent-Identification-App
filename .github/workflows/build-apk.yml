@@ -120,28 +120,40 @@ jobs:
           # Ensure a clean environment for buildozer
           . ../venv/bin/activate
           # Run a debug build; buildozer will download SDK/NDK as needed
-          # Capture full stdout/stderr into a file so we can inspect failures later
-          buildozer -v android debug 2>&1 | tee buildozer-output.log
+          # Buildozer needs the SDK cmdline-tools and platform-tools in PATH. Ensure the workspace SDK tools are on PATH.
+          export ANDROID_SDK_ROOT="$GITHUB_WORKSPACE/android_app/.buildozer/android/platform/android-sdk"
+          export ANDROID_HOME="$ANDROID_SDK_ROOT"
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:":$PATH >> $GITHUB_ENV || true
+
+          # Run buildozer but avoid creating a giant artifact. Capture output to a local file, then trim it.
+          buildozer android debug 2>&1 | tee buildozer-output-full.log || true
+          # Save a trimmed log (last 5000 lines) which is usually sufficient to diagnose packaging issues.
+          tail -n 5000 buildozer-output-full.log > buildozer-output.log || true
+          # Also produce a tiny summary with key lines (Package, Aidl, BUILD FAILED/SUCCESS)
+          (grep -iE "Package: .*\.apk|Aidl not found|BUILD FAILED|BUILD SUCCESSFUL|ERROR:" buildozer-output-full.log || true) > buildozer-output-summary.log || true
+          # Remove the large full log to avoid accidental upload
+          rm -f buildozer-output-full.log || true
 
       - name: Collect build logs (always)
         if: always()
         run: |
+          # Keep build logs small: only upload the trimmed buildozer output and a short summary.
           set -e || true
           mkdir -p build_logs
-          # copy buildozer working dir if present
-          if [ -d "android_app/.buildozer" ]; then
-            cp -a android_app/.buildozer build_logs/ || true
-          fi
-          # copy bin outputs if present
-          if [ -d "android_app/bin" ]; then
-            cp -a android_app/bin build_logs/ || true
-          fi
-          # collect any log files
-          find . -type f -name "*.log" -maxdepth 6 -print0 | xargs -0 -I{} bash -c 'mkdir -p "$(dirname build_logs/{})"; cp "{}" "build_logs/{}"' || true
-          # also copy the captured buildozer console output if present
           if [ -f "android_app/buildozer-output.log" ]; then
             cp -v android_app/buildozer-output.log build_logs/ || true
           fi
+          if [ -f "android_app/buildozer-output-summary.log" ]; then
+            cp -v android_app/buildozer-output-summary.log build_logs/ || true
+          fi
+          # Also collect small config snippets to help debugging (buildozer.spec first 200 lines)
+          if [ -f "android_app/buildozer.spec" ]; then
+            head -n 200 android_app/buildozer.spec > build_logs/buildozer.spec.head || true
+          fi
+          # Zip logs (should be tiny now)
           zip -r build_logs.zip build_logs || true
 
       - name: Upload build logs (always)
