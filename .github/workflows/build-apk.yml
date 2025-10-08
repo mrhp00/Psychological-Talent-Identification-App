@@ -13,10 +13,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install system packages
+      - name: Install system packages (with retries)
         run: |
+          set -e
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends git zip unzip openjdk-11-jdk python3-pip python3-venv build-essential zlib1g-dev libncurses5 libffi-dev libssl-dev
+          PACKAGES=(git zip unzip openjdk-11-jdk python3-pip python3-venv build-essential zlib1g-dev libncurses5 libffi-dev libssl-dev)
+          n=0
+          until [ $n -ge 5 ]
+          do
+            sudo apt-get install -y --no-install-recommends "${PACKAGES[@]}" && break
+            n=$((n+1))
+            echo "apt-get install failed, retrying ($n)..."
+            sleep 10
+          done
+          if [ $n -ge 5 ]; then
+            echo "Failed to install system packages after retries" >&2
+            exit 1
+          fi
 
       - name: Setup Python venv and pip
         run: |
