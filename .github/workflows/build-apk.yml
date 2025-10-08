@@ -24,16 +24,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install minimal packages
+      - name: Install minimal packages and native build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends zip unzip
+          # required for many Python native builds and Buildozer
+          sudo apt-get install -y --no-install-recommends \
+            zip unzip build-essential python3-dev libffi-dev libssl-dev liblzma-dev pkg-config git-core
 
-      - name: Setup Python venv and install Buildozer
+      - name: Setup Python venv and install Buildozer + Cython
         run: |
           python3 -m venv venv
           . venv/bin/activate
           pip install --upgrade pip setuptools wheel
+          # Ensure Cython is available for p4a / recipe builds
+          pip install --upgrade cython
           pip install --upgrade buildozer
 
       - name: Build APK with Buildozer
