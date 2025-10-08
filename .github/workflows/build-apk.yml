@@ -40,6 +40,36 @@ jobs:
           pip install --upgrade cython
           pip install --upgrade buildozer
 
+      - name: Accept Android SDK licenses and install build-tools (if present)
+        run: |
+          # Buildozer may create an SDK under the runner temp or project .buildozer location.
+          # Try to locate sdkmanager and accept licenses / install required packages.
+          set -e
+          SDKROOT1="${{ runner.temp }}/.buildozer/android/platform/android-sdk"
+          SDKROOT2="$GITHUB_WORKSPACE/android_app/.buildozer/android/platform/android-sdk"
+          SDKMAN=""
+          if [ -x "$SDKROOT1/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMAN="$SDKROOT1/cmdline-tools/latest/bin/sdkmanager"
+            SDKROOT="$SDKROOT1"
+          elif [ -x "$SDKROOT1/tools/bin/sdkmanager" ]; then
+            SDKMAN="$SDKROOT1/tools/bin/sdkmanager"
+            SDKROOT="$SDKROOT1"
+          elif [ -x "$SDKROOT2/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMAN="$SDKROOT2/cmdline-tools/latest/bin/sdkmanager"
+            SDKROOT="$SDKROOT2"
+          elif [ -x "$SDKROOT2/tools/bin/sdkmanager" ]; then
+            SDKMAN="$SDKROOT2/tools/bin/sdkmanager"
+            SDKROOT="$SDKROOT2"
+          fi
+          if [ -n "$SDKMAN" ]; then
+            echo "Found sdkmanager: $SDKMAN"
+            yes | "$SDKMAN" --licenses || true
+            # Install platform-tools, platforms and build-tools 36.1.0
+            "$SDKMAN" "platform-tools" "platforms;android-31" "build-tools;36.1.0" || true
+          else
+            echo "sdkmanager not found yet; Buildozer will download SDK/NDK later and handle installations."
+          fi
+
       - name: Build APK with Buildozer
         working-directory: android_app
         env:
