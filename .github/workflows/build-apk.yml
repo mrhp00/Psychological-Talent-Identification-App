@@ -135,22 +135,54 @@ jobs:
           set -e || true
           rm -rf apk_artifacts || true
           mkdir -p apk_artifacts
-          # Search for common Android package file types and copy them into apk_artifacts preserving relative paths
-          find android_app -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 | xargs -0 -I{} bash -c 'mkdir -p "apk_artifacts/$(dirname "{}")"; cp -v "{}" "apk_artifacts/{}"' || true
-          # Also search the workspace root in case buildozer placed artifacts elsewhere
-          find . -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -maxdepth 6 -print0 | xargs -0 -I{} bash -c 'mkdir -p "apk_artifacts/$(dirname "{}")"; cp -v "{}" "apk_artifacts/{}"' || true
-          # Additionally, Buildozer may use the runner temporary directory (HOME was set to $RUNNER_TEMP)
-          # Copy any package files from $RUNNER_TEMP/.buildozer into apk_artifacts preserving relative paths
-          if [ -d "$RUNNER_TEMP/.buildozer" ]; then
-            echo "Searching $RUNNER_TEMP/.buildozer for APK/AAB/APKS files..."
-            find "$RUNNER_TEMP/.buildozer" -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 \
-              | while IFS= read -r -d '' f; do
-                  rel="${f#$RUNNER_TEMP/}"
-                  mkdir -p "apk_artifacts/$(dirname "$rel")"
-                  cp -v "$f" "apk_artifacts/$rel" || true
-                done || true
-          fi
-          echo "Collected APK artifacts:" 
+          # Aggressively search and copy generated APK/AAB/APKS from likely p4a/Gradle output locations.
+          # We look in the project workspace, project .buildozer locations and the runner temporary .buildozer area.
+          set -u
+          GHW="$GITHUB_WORKSPACE"
+          # helper to copy found files preserving a repo-relative path when possible
+          copy_preserve() {
+            f="$1"
+            # try to make a path relative to the workspace
+            rel="${f#$GHW/}"
+            if [ "$rel" = "$f" ]; then
+              # not under workspace, just use absolute-without-leading-slash
+              rel="${f#/}"
+            fi
+            dest="apk_artifacts/$rel"
+            mkdir -p "$(dirname "$dest")"
+            cp -v "$f" "$dest" || true
+          }
+
+          # directories to search (in order)
+          DIRS_TO_SEARCH=(
+            "${GHW}/android_app/.buildozer"
+            "${GHW}/.buildozer"
+            "${RUNNER_TEMP}/.buildozer"
+            "${RUNNER_TEMP}"
+            "/home/runner/work/_temp/.buildozer"
+            "${GHW}"
+          )
+
+          for d in "${DIRS_TO_SEARCH[@]}"; do
+            if [ -d "$d" ]; then
+              echo "Searching $d for APK/AAB/APKS files..."
+              find "$d" -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 \
+                | while IFS= read -r -d '' f; do
+                    copy_preserve "$f"
+                  done || true
+            else
+              echo "Directory not present: $d"
+            fi
+          done
+
+          # Fallback: search entire workspace for package files (this can be expensive but ensures coverage)
+          echo "Searching entire workspace for APK/AAB/APKS..."
+          find "$GHW" -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 \
+            | while IFS= read -r -d '' f; do
+                copy_preserve "$f"
+              done || true
+
+          echo "Collected APK artifacts:"
           ls -laR apk_artifacts || true
 
       - name: Upload APK artifact
