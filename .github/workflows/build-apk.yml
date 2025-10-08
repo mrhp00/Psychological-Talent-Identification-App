@@ -125,13 +125,22 @@ jobs:
           name: build-logs
           path: build_logs.zip
 
+      - name: Collect any generated APK/AAB/APKS files
+        if: always()
+        run: |
+          set -e || true
+          rm -rf apk_artifacts || true
+          mkdir -p apk_artifacts
+          # Search for common Android package file types and copy them into apk_artifacts preserving relative paths
+          find android_app -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 | xargs -0 -I{} bash -c 'mkdir -p "apk_artifacts/$(dirname "{}")"; cp -v "{}" "apk_artifacts/{}"' || true
+          # Also search the workspace root in case buildozer placed artifacts elsewhere
+          find . -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -maxdepth 6 -print0 | xargs -0 -I{} bash -c 'mkdir -p "apk_artifacts/$(dirname "{}")"; cp -v "{}" "apk_artifacts/{}"' || true
+          echo "Collected APK artifacts:" 
+          ls -laR apk_artifacts || true
+
       - name: Upload APK artifact
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          # try common output locations plus a workspace-wide glob so we don't miss the apk
-          path: |
-            android_app/bin/*.apk
-            android_app/.buildozer/**/*.apk
-            **/*.apk
+          path: apk_artifacts
