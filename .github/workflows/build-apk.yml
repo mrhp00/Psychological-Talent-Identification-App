@@ -40,11 +40,11 @@ jobs:
           pip install --upgrade cython
           pip install --upgrade buildozer
 
-      - name: Install Android command-line tools and SDK packages (into runner temp .buildozer)
+      - name: Install Android command-line tools and SDK packages (into workspace .buildozer)
         run: |
           set -e
-          # Install SDK into the exact location Buildozer/p4a will use when HOME=$RUNNER_TEMP
-          ANDROID_SDK_ROOT="$RUNNER_TEMP/.buildozer/android/platform/android-sdk"
+          # Install SDK into the workspace .buildozer so Buildozer will reuse it and outputs land in repository
+          ANDROID_SDK_ROOT="$GITHUB_WORKSPACE/android_app/.buildozer/android/platform/android-sdk"
           mkdir -p "$ANDROID_SDK_ROOT"
           echo "Downloading Android command-line tools..."
           curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o /tmp/cmdline-tools.zip
@@ -93,7 +93,7 @@ jobs:
       - name: Build APK with Buildozer
         working-directory: android_app
         env:
-          HOME: ${{ runner.temp }}
+          HOME: ${{ github.workspace }}
         run: |
           # Ensure a clean environment for buildozer
           . ../venv/bin/activate
