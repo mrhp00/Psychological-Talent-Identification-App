@@ -46,6 +46,30 @@ jobs:
           # Run a debug build; buildozer will download SDK/NDK as needed
           buildozer -v android debug
 
+      - name: Collect build logs (always)
+        if: always()
+        run: |
+          set -e || true
+          mkdir -p build_logs
+          # copy buildozer working dir if present
+          if [ -d "android_app/.buildozer" ]; then
+            cp -a android_app/.buildozer build_logs/ || true
+          fi
+          # copy bin outputs if present
+          if [ -d "android_app/bin" ]; then
+            cp -a android_app/bin build_logs/ || true
+          fi
+          # collect any log files
+          find . -type f -name "*.log" -maxdepth 6 -print0 | xargs -0 -I{} bash -c 'mkdir -p "$(dirname build_logs/{})"; cp "{}" "build_logs/{}"' || true
+          zip -r build_logs.zip build_logs || true
+
+      - name: Upload build logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: build_logs.zip
+
       - name: Upload APK artifact
         if: success()
         uses: actions/upload-artifact@v4
