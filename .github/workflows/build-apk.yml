@@ -1,0 +1,47 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends git zip unzip openjdk-11-jdk python3-pip python3-venv build-essential zlib1g-dev libncurses5 libffi-dev libssl-dev
+
+      - name: Setup Python venv and pip
+        run: |
+          python3 -m venv venv
+          . venv/bin/activate
+          pip install --upgrade pip setuptools wheel
+
+      - name: Install buildozer
+        run: |
+          . venv/bin/activate
+          pip install --upgrade buildozer
+
+      - name: Build APK with Buildozer
+        working-directory: android_app
+        env:
+          HOME: ${{ runner.temp }}
+        run: |
+          # Ensure a clean environment for buildozer
+          . ../venv/bin/activate
+          # Run a debug build; buildozer will download SDK/NDK as needed
+          buildozer -v android debug
+
+      - name: Upload APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android_app/bin/*.apk
