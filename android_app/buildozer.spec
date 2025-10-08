@@ -11,7 +11,7 @@ android.arch = armeabi-v7a
 # Recommended p4a / NDK settings for CI
 android.api = 31
 android.ndk = 23b
-android.ndk_path = /usr/local/lib/android-ndk
+# Do not hardcode android.ndk_path; let Buildozer / p4a manage NDK download on CI
 presplash.filename = %(source.dir)s/data/presplash.png
 
 [app]

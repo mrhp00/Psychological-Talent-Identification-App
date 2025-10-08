@@ -13,33 +13,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install system packages (with retries)
-        run: |
-          set -e
-          sudo apt-get update
-          PACKAGES=(git zip unzip openjdk-11-jdk python3-pip python3-venv build-essential zlib1g-dev libncurses5 libffi-dev libssl-dev)
-          n=0
-          until [ $n -ge 5 ]
-          do
-            sudo apt-get install -y --no-install-recommends "${PACKAGES[@]}" && break
-            n=$((n+1))
-            echo "apt-get install failed, retrying ($n)..."
-            sleep 10
-          done
-          if [ $n -ge 5 ]; then
-            echo "Failed to install system packages after retries" >&2
-            exit 1
-          fi
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
 
-      - name: Setup Python venv and pip
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install minimal packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends zip unzip
+
+      - name: Setup Python venv and install Buildozer
         run: |
           python3 -m venv venv
           . venv/bin/activate
           pip install --upgrade pip setuptools wheel
-
-      - name: Install buildozer
-        run: |
-          . venv/bin/activate
           pip install --upgrade buildozer
 
       - name: Build APK with Buildozer
