@@ -40,10 +40,11 @@ jobs:
           pip install --upgrade cython
           pip install --upgrade buildozer
 
-      - name: Install Android command-line tools and SDK packages
+      - name: Install Android command-line tools and SDK packages (into runner temp .buildozer)
         run: |
           set -e
-          ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
+          # Install SDK into the exact location Buildozer/p4a will use when HOME=$RUNNER_TEMP
+          ANDROID_SDK_ROOT="$RUNNER_TEMP/.buildozer/android/platform/android-sdk"
           mkdir -p "$ANDROID_SDK_ROOT"
           echo "Downloading Android command-line tools..."
           curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o /tmp/cmdline-tools.zip
@@ -52,9 +53,12 @@ jobs:
           mv /tmp/cmdline-tools/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
           echo "SDK root: $ANDROID_SDK_ROOT"
+          # Accept licenses non-interactively for this sdk_root
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
           sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-31" "build-tools;36.1.0" || true
+          # Export path so build step uses this SDK instead of downloading its own
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
 
       - name: Accept Android SDK licenses and install build-tools (if present)
         run: |
