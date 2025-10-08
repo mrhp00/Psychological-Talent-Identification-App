@@ -130,4 +130,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: android_app/bin/*.apk
+          # try common output locations plus a workspace-wide glob so we don't miss the apk
+          path: |
+            android_app/bin/*.apk
+            android_app/.buildozer/**/*.apk
+            **/*.apk
