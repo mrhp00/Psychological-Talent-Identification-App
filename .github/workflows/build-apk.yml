@@ -46,17 +46,39 @@ jobs:
           # Install SDK into the workspace .buildozer so Buildozer will reuse it and outputs land in repository
           ANDROID_SDK_ROOT="$GITHUB_WORKSPACE/android_app/.buildozer/android/platform/android-sdk"
           mkdir -p "$ANDROID_SDK_ROOT"
-          echo "Downloading Android command-line tools..."
+          echo "Downloading Android command-line tools into workspace SDK root..."
           curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o /tmp/cmdline-tools.zip
           unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           mv /tmp/cmdline-tools/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-          echo "SDK root: $ANDROID_SDK_ROOT"
-          # Accept licenses non-interactively for this sdk_root
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
-          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-31" "build-tools;36.1.0" || true
-          # Export path so build step uses this SDK instead of downloading its own
+          echo "Workspace SDK root: $ANDROID_SDK_ROOT"
+
+          # Also prepare the runner temporary SDK locations Buildozer may use
+          RUN_SDK1="${RUNNER_TEMP}/.buildozer/android/platform/android-sdk"
+          RUN_SDK2="/home/runner/work/_temp/.buildozer/android/platform/android-sdk"
+          for RUNSDK in "$RUN_SDK1" "$RUN_SDK2"; do
+            mkdir -p "$RUNSDK/cmdline-tools"
+            mkdir -p "$RUNSDK/cmdline-tools/latest"
+            # copy cmdline-tools so sdkmanager is available under runner temp SDK as well
+            cp -a "$ANDROID_SDK_ROOT/cmdline-tools/latest/"* "$RUNSDK/cmdline-tools/latest/" || true
+            echo "Prepared runner SDK at $RUNSDK"
+          done
+
+          # Try to accept licenses and install packages in all known SDK roots to ensure build-tools/platform-tools exist
+          SDKROOTS=("$ANDROID_SDK_ROOT" "$RUN_SDK1" "$RUN_SDK2")
+          for S in "${SDKROOTS[@]}"; do
+            if [ -x "$S/cmdline-tools/latest/bin/sdkmanager" ]; then
+              echo "Running sdkmanager for $S"
+              PATH="$S/cmdline-tools/latest/bin:$PATH"
+              yes | "$S/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$S" --licenses || true
+              "$S/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$S" "platform-tools" "platforms;android-31" "build-tools;36.1.0" || true
+            else
+              echo "sdkmanager not present at $S yet"
+            fi
+          done
+
+          # Export workspace SDK env so Buildozer will prefer it
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
 
