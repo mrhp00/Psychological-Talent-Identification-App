@@ -184,6 +184,24 @@ jobs:
 
           echo "Collected APK artifacts:"
           ls -laR apk_artifacts || true
+          # Additionally copy common p4a/Gradle output paths explicitly
+          echo "Copying known python-for-android / Gradle output paths..."
+          set +e
+          for p in \
+            "$GHW/android_app/.buildozer/android/platform/build/dists/*/build/outputs/apk" \
+            "$GHW/.buildozer/android/platform/build/dists/*/build/outputs/apk" \
+            "$GHW/android_app/.buildozer/android/platform/build/dists/*/release/*.apk" \
+            "$GHW/.buildozer/android/platform/build/dists/*/release/*.apk" \
+            "/home/runner/work/_temp/.buildozer/android/platform/build/dists/*/build/outputs/apk"; do
+            for f in $(bash -c "ls -1 $p 2>/dev/null || true"); do
+              if [ -f "$f" ]; then
+                copy_preserve "$f"
+              fi
+            done
+          done
+          set -e
+          echo "Final collected APK artifacts:"
+          ls -laR apk_artifacts || true
 
       - name: Upload APK artifact
         if: always()
