@@ -124,6 +124,15 @@ jobs:
           export ANDROID_SDK_ROOT="$GITHUB_WORKSPACE/android_app/.buildozer/android/platform/android-sdk"
           export ANDROID_HOME="$ANDROID_SDK_ROOT"
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          # If build-tools were installed, add their bins (where aidl lives) to PATH as well
+          if [ -d "$ANDROID_SDK_ROOT/build-tools" ]; then
+            for bt in "$ANDROID_SDK_ROOT"/build-tools/*; do
+              if [ -d "$bt" ]; then
+                export PATH="$bt:$PATH"
+              fi
+            done
+          fi
+          echo "Contents of build-tools dir:"; ls -la "$ANDROID_SDK_ROOT/build-tools" || true
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:":$PATH >> $GITHUB_ENV || true
