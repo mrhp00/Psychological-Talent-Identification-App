@@ -40,6 +40,22 @@ jobs:
           pip install --upgrade cython
           pip install --upgrade buildozer
 
+      - name: Install Android command-line tools and SDK packages
+        run: |
+          set -e
+          ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT"
+          echo "Downloading Android command-line tools..."
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mv /tmp/cmdline-tools/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          echo "SDK root: $ANDROID_SDK_ROOT"
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
+          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-31" "build-tools;36.1.0" || true
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+
       - name: Accept Android SDK licenses and install build-tools (if present)
         run: |
           # Buildozer may create an SDK under the runner temp or project .buildozer location.
