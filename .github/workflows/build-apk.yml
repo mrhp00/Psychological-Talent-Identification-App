@@ -1,252 +1,68 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '11'
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install minimal packages and native build deps
+      
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          # required for many Python native builds and Buildozer
-          sudo apt-get install -y --no-install-recommends \
-            zip unzip build-essential python3-dev libffi-dev libssl-dev liblzma-dev pkg-config git-core
-
-      - name: Setup Python venv and install Buildozer + Cython
+          sudo apt update
+          sudo apt install -y \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            cython3
+      
+      - name: Install Buildozer
         run: |
-          python3 -m venv venv
-          . venv/bin/activate
-          pip install --upgrade pip setuptools wheel
-          # Ensure Cython is available for p4a / recipe builds
-          pip install --upgrade cython
-          pip install --upgrade buildozer
-
-      - name: Install Android command-line tools and SDK packages (into workspace .buildozer)
-        run: |
-          set -e
-          # Install SDK into the workspace .buildozer so Buildozer will reuse it and outputs land in repository
-          ANDROID_SDK_ROOT="$GITHUB_WORKSPACE/android_app/.buildozer/android/platform/android-sdk"
-          mkdir -p "$ANDROID_SDK_ROOT"
-          echo "Downloading Android command-line tools into workspace SDK root..."
-          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o /tmp/cmdline-tools.zip
-          unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          mv /tmp/cmdline-tools/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
-          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-          echo "Workspace SDK root: $ANDROID_SDK_ROOT"
-
-          # Also prepare the runner temporary SDK locations Buildozer may use
-          RUN_SDK1="${RUNNER_TEMP}/.buildozer/android/platform/android-sdk"
-          RUN_SDK2="/home/runner/work/_temp/.buildozer/android/platform/android-sdk"
-          for RUNSDK in "$RUN_SDK1" "$RUN_SDK2"; do
-            mkdir -p "$RUNSDK/cmdline-tools"
-            mkdir -p "$RUNSDK/cmdline-tools/latest"
-            # copy cmdline-tools so sdkmanager is available under runner temp SDK as well
-            cp -a "$ANDROID_SDK_ROOT/cmdline-tools/latest/"* "$RUNSDK/cmdline-tools/latest/" || true
-            echo "Prepared runner SDK at $RUNSDK"
-          done
-
-          # Try to accept licenses and install packages in all known SDK roots to ensure build-tools/platform-tools exist
-          SDKROOTS=("$ANDROID_SDK_ROOT" "$RUN_SDK1" "$RUN_SDK2")
-          for S in "${SDKROOTS[@]}"; do
-            if [ -x "$S/cmdline-tools/latest/bin/sdkmanager" ]; then
-              echo "Running sdkmanager for $S"
-              PATH="$S/cmdline-tools/latest/bin:$PATH"
-              yes | "$S/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$S" --licenses || true
-              "$S/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$S" "platform-tools" "platforms;android-31" "build-tools;36.1.0" || true
-            else
-              echo "sdkmanager not present at $S yet"
-            fi
-          done
-
-          # Export workspace SDK env so Buildozer will prefer it
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-
-      - name: Accept Android SDK licenses and install build-tools (if present)
-        run: |
-          # Buildozer may create an SDK under the runner temp or project .buildozer location.
-          # Try to locate sdkmanager and accept licenses / install required packages.
-          set -e
-          SDKROOT1="${{ runner.temp }}/.buildozer/android/platform/android-sdk"
-          SDKROOT2="$GITHUB_WORKSPACE/android_app/.buildozer/android/platform/android-sdk"
-          SDKMAN=""
-          if [ -x "$SDKROOT1/cmdline-tools/latest/bin/sdkmanager" ]; then
-            SDKMAN="$SDKROOT1/cmdline-tools/latest/bin/sdkmanager"
-            SDKROOT="$SDKROOT1"
-          elif [ -x "$SDKROOT1/tools/bin/sdkmanager" ]; then
-            SDKMAN="$SDKROOT1/tools/bin/sdkmanager"
-            SDKROOT="$SDKROOT1"
-          elif [ -x "$SDKROOT2/cmdline-tools/latest/bin/sdkmanager" ]; then
-            SDKMAN="$SDKROOT2/cmdline-tools/latest/bin/sdkmanager"
-            SDKROOT="$SDKROOT2"
-          elif [ -x "$SDKROOT2/tools/bin/sdkmanager" ]; then
-            SDKMAN="$SDKROOT2/tools/bin/sdkmanager"
-            SDKROOT="$SDKROOT2"
-          fi
-          if [ -n "$SDKMAN" ]; then
-            echo "Found sdkmanager: $SDKMAN"
-            yes | "$SDKMAN" --licenses || true
-            # Install platform-tools, platforms and build-tools 36.1.0
-            "$SDKMAN" "platform-tools" "platforms;android-31" "build-tools;36.1.0" || true
-          else
-            echo "sdkmanager not found yet; Buildozer will download SDK/NDK later and handle installations."
-          fi
-
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.36
+      
       - name: Build APK with Buildozer
-        working-directory: android_app
-        env:
-          HOME: ${{ github.workspace }}
         run: |
-          # Ensure a clean environment for buildozer
-          . ../venv/bin/activate
-          # Run a debug build; buildozer will download SDK/NDK as needed
-          # Buildozer needs the SDK cmdline-tools and platform-tools in PATH. Ensure the workspace SDK tools are on PATH.
-          export ANDROID_SDK_ROOT="$GITHUB_WORKSPACE/android_app/.buildozer/android/platform/android-sdk"
-          export ANDROID_HOME="$ANDROID_SDK_ROOT"
-          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
-          # If build-tools were installed, add their bins (where aidl lives) to PATH as well
-          if [ -d "$ANDROID_SDK_ROOT/build-tools" ]; then
-            for bt in "$ANDROID_SDK_ROOT"/build-tools/*; do
-              if [ -d "$bt" ]; then
-                export PATH="$bt:$PATH"
-              fi
-            done
-          fi
-          echo "Contents of build-tools dir:"; ls -la "$ANDROID_SDK_ROOT/build-tools" || true
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:":$PATH >> $GITHUB_ENV || true
-
-          # Run buildozer but avoid creating a giant artifact. Capture output to a local file, then trim it.
-          buildozer android debug 2>&1 | tee buildozer-output-full.log || true
-          # Save a trimmed log (last 5000 lines) which is usually sufficient to diagnose packaging issues.
-          tail -n 5000 buildozer-output-full.log > buildozer-output.log || true
-          # Also produce a tiny summary with key lines (Package, Aidl, BUILD FAILED/SUCCESS)
-          (grep -iE "Package: .*\.apk|Aidl not found|BUILD FAILED|BUILD SUCCESSFUL|ERROR:" buildozer-output-full.log || true) > buildozer-output-summary.log || true
-          # Remove the large full log to avoid accidental upload
-          rm -f buildozer-output-full.log || true
-
-      - name: Collect build logs (always)
-        if: always()
-        run: |
-          # Keep build logs small: only upload the trimmed buildozer output and a short summary.
-          set -e || true
-          mkdir -p build_logs
-          if [ -f "android_app/buildozer-output.log" ]; then
-            cp -v android_app/buildozer-output.log build_logs/ || true
-          fi
-          if [ -f "android_app/buildozer-output-summary.log" ]; then
-            cp -v android_app/buildozer-output-summary.log build_logs/ || true
-          fi
-          # Also collect small config snippets to help debugging (buildozer.spec first 200 lines)
-          if [ -f "android_app/buildozer.spec" ]; then
-            head -n 200 android_app/buildozer.spec > build_logs/buildozer.spec.head || true
-          fi
-          # Zip logs (should be tiny now)
-          zip -r build_logs.zip build_logs || true
-
-      - name: Upload build logs (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: build_logs.zip
-
-      - name: Collect any generated APK/AAB/APKS files
-        if: always()
-        run: |
-          set -e || true
-          rm -rf apk_artifacts || true
-          mkdir -p apk_artifacts
-          # Aggressively search and copy generated APK/AAB/APKS from likely p4a/Gradle output locations.
-          # We look in the project workspace, project .buildozer locations and the runner temporary .buildozer area.
-          set -u
-          GHW="$GITHUB_WORKSPACE"
-          # helper to copy found files preserving a repo-relative path when possible
-          copy_preserve() {
-            f="$1"
-            # try to make a path relative to the workspace
-            rel="${f#$GHW/}"
-            if [ "$rel" = "$f" ]; then
-              # not under workspace, just use absolute-without-leading-slash
-              rel="${f#/}"
-            fi
-            dest="apk_artifacts/$rel"
-            mkdir -p "$(dirname "$dest")"
-            cp -v "$f" "$dest" || true
-          }
-
-          # directories to search (in order)
-          DIRS_TO_SEARCH=(
-            "${GHW}/android_app/.buildozer"
-            "${GHW}/.buildozer"
-            "${RUNNER_TEMP}/.buildozer"
-            "${RUNNER_TEMP}"
-            "/home/runner/work/_temp/.buildozer"
-            "${GHW}"
-          )
-
-          for d in "${DIRS_TO_SEARCH[@]}"; do
-            if [ -d "$d" ]; then
-              echo "Searching $d for APK/AAB/APKS files..."
-              find "$d" -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 \
-                | while IFS= read -r -d '' f; do
-                    copy_preserve "$f"
-                  done || true
-            else
-              echo "Directory not present: $d"
-            fi
-          done
-
-          # Fallback: search entire workspace for package files (this can be expensive but ensures coverage)
-          echo "Searching entire workspace for APK/AAB/APKS..."
-          find "$GHW" -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.apks" \) -print0 \
-            | while IFS= read -r -d '' f; do
-                copy_preserve "$f"
-              done || true
-
-          echo "Collected APK artifacts:"
-          ls -laR apk_artifacts || true
-          # Additionally copy common p4a/Gradle output paths explicitly
-          echo "Copying known python-for-android / Gradle output paths..."
-          set +e
-          for p in \
-            "$GHW/android_app/.buildozer/android/platform/build/dists/*/build/outputs/apk" \
-            "$GHW/.buildozer/android/platform/build/dists/*/build/outputs/apk" \
-            "$GHW/android_app/.buildozer/android/platform/build/dists/*/release/*.apk" \
-            "$GHW/.buildozer/android/platform/build/dists/*/release/*.apk" \
-            "/home/runner/work/_temp/.buildozer/android/platform/build/dists/*/build/outputs/apk"; do
-            for f in $(bash -c "ls -1 $p 2>/dev/null || true"); do
-              if [ -f "$f" ]; then
-                copy_preserve "$f"
-              fi
-            done
-          done
-          set -e
-          echo "Final collected APK artifacts:"
-          ls -laR apk_artifacts || true
-
+          cd android_app
+          export PIP_BREAK_SYSTEM_PACKAGES=1
+          buildozer -v android debug
+      
       - name: Upload APK artifact
-        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: apk_artifacts
+          name: psychotalent-apk
+          path: android_app/bin/*.apk
+          if-no-files-found: error
+      
+      - name: Create Release (on tag push)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: android_app/bin/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
