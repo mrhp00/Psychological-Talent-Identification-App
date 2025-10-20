@@ -4,6 +4,7 @@ import json
 import os
 from datetime import datetime
 import jdatetime
+import copy
 # PyQt5 imports for GUI components
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QMessageBox, QDialog, QHeaderView, QMenuBar, QAction, QFileDialog, QSpinBox, QTextEdit, QAbstractItemView, QProgressDialog, QInputDialog
@@ -47,6 +48,49 @@ def save_entries(entries):
     """
     with open(ENTRIES_FILE, 'w', encoding='utf-8') as f:
         json.dump(entries, f, ensure_ascii=False, indent=2)
+
+
+def compute_score_from_keys(keys, answers):
+    """Compute total score for a given answers string using provided keys list."""
+    total = 0
+    for idx, ch in enumerate(answers):
+        if idx < len(keys) and ch in keys[idx]:
+            try:
+                total += int(keys[idx][ch])
+            except Exception:
+                pass
+    return total
+
+
+def migrate_entries_add_snapshots(keys):
+    """For existing entries that lack a 'keys_snapshot', add a snapshot of the provided keys
+    and set a score based on that snapshot. This preserves historical scoring when keys change.
+    Returns number of updated entries.
+    """
+    updated = 0
+    if not os.path.exists(ENTRIES_FILE):
+        return updated
+    try:
+        with open(ENTRIES_FILE, encoding='utf-8') as f:
+            entries = json.load(f)
+    except Exception:
+        return updated
+
+    for e in entries:
+        if 'keys_snapshot' not in e:
+            # store a deep copy of the keys (scores only) and recompute score
+            e['keys_snapshot'] = copy.deepcopy(keys)
+            answers = e.get('answers', '')
+            e['score'] = compute_score_from_keys(e['keys_snapshot'], answers)
+            updated += 1
+
+    if updated:
+        try:
+            with open(ENTRIES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(entries, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+    return updated
 
 
 class MergeEntitiesDialog(QDialog):
@@ -199,10 +243,12 @@ class KeysEditorDialog(QDialog):
                             entries = json.load(f)
                         for i, e in enumerate(entries):
                             answers = e.get('answers', '')
-                            total = 0
-                            for idx, ans in enumerate(answers):
-                                if idx < len(self.keys) and ans in self.keys[idx]:
-                                    total += self.keys[idx][ans]
+                            # use snapshot if present, else current keys
+                            ksnap = e.get('keys_snapshot', None)
+                            if ksnap:
+                                total = compute_score_from_keys(ksnap, answers)
+                            else:
+                                total = compute_score_from_keys(self.keys, answers)
                             e['score'] = total
                         with open(ENTRIES_FILE, 'w', encoding='utf-8') as f2:
                             json.dump(entries, f2, ensure_ascii=False, indent=2)
@@ -843,14 +889,10 @@ class AddEntryDialog(QDialog):
         if not name:
             QMessageBox.warning(self, 'Error', 'Name required')
             return
-        score = 0
-        for idx, ch in enumerate(answers):
-            if idx < len(self.keys) and ch in self.keys[idx]:
-                try:
-                    score += int(self.keys[idx][ch])
-                except Exception:
-                    pass
-        self.result_entry = {'name': name, 'phone': phone, 'answers': answers, 'score': score}
+        # snapshot current keys so future key edits won't change historic scores
+        keys_snapshot = copy.deepcopy(self.keys)
+        score = compute_score_from_keys(keys_snapshot, answers)
+        self.result_entry = {'name': name, 'phone': phone, 'answers': answers, 'score': score, 'keys_snapshot': keys_snapshot}
         self.accept()
 
 
@@ -978,6 +1020,9 @@ class MainWindow(QMainWindow):
         edit_keys_action = QAction('Edit Keys', self)
         edit_keys_action.triggered.connect(self.open_keys_editor)
         tools_menu.addAction(edit_keys_action)
+        migrate_action = QAction('Migrate entries (snapshot keys)', self)
+        migrate_action.triggered.connect(self.migrate_entries_command)
+        tools_menu.addAction(migrate_action)
 
         # Class Management menu (non-invasive addition)
         class_menu = menubar.addMenu('Class Management')
@@ -1155,6 +1200,13 @@ class MainWindow(QMainWindow):
             self.keys, self.descriptions = load_keys()
             self.entries = load_entries()
             self.refresh_table()
+
+    def migrate_entries_command(self):
+        # Run migration to snapshot current keys into existing entries
+        count = migrate_entries_add_snapshots(self.keys)
+        QMessageBox.information(self, 'Migration Complete', f'Updated {count} entries with keys snapshot.')
+        self.entries = load_entries()
+        self.refresh_table()
     # --- Class management DB helper ---
     def setup_class_db(self):
         import sqlite3

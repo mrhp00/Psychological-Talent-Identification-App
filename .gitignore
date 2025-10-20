@@ -90,3 +90,26 @@ poetry.lock
 # Custom ignores
 entries.json
 class.sqlite3
+
+# Buildozer / Android build
+.buildozer/
+bin/
+*.apk
+*.aab
+build_logs/
+
+# Large files
+*.zip
+android-ndk-*
+*.exe
+
+# Temp workspace files
+jobs.json
+runs.json
+workflows.json
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
